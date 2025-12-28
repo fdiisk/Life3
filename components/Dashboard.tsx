@@ -88,14 +88,22 @@ export default function Dashboard({ userId }: DashboardProps) {
   return (
     <main className="min-h-screen bg-gray-100 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        <header className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">Life3</h1>
-          <p className="text-gray-500">{new Date().toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-          })}</p>
+        <header className="mb-6 flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">Life3</h1>
+            <p className="text-gray-500">{new Date().toLocaleDateString('en-US', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            })}</p>
+          </div>
+          <a
+            href="/analytics"
+            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center gap-2"
+          >
+            📊 Analytics
+          </a>
         </header>
 
         {/* Quick Capture */}

@@ -1,30 +1,10 @@
 -- Life3 Database Schema
 -- Run this in Supabase SQL Editor to create tables
 
--- Users table
-CREATE TABLE IF NOT EXISTS users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  name TEXT NOT NULL,
-  email TEXT UNIQUE NOT NULL
-);
-
--- Habits table
-CREATE TABLE IF NOT EXISTS habits (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  frequency TEXT CHECK (frequency IN ('daily', 'weekly', 'monthly')) DEFAULT 'daily',
-  last_done TIMESTAMPTZ,
-  streak INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Goals table (supports hierarchy via parent_goal_id)
+-- Goals table (created first due to foreign key references)
 CREATE TABLE IF NOT EXISTS goals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
   title TEXT NOT NULL,
   parent_goal_id UUID REFERENCES goals(id) ON DELETE SET NULL,
   weight INTEGER DEFAULT 50 CHECK (weight >= 0 AND weight <= 100),
@@ -32,10 +12,21 @@ CREATE TABLE IF NOT EXISTS goals (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Habits table
+CREATE TABLE IF NOT EXISTS habits (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  frequency TEXT CHECK (frequency IN ('daily', 'weekly', 'monthly')) DEFAULT 'daily',
+  last_done TIMESTAMPTZ,
+  streak INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Tasks table
 CREATE TABLE IF NOT EXISTS tasks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
   title TEXT NOT NULL,
   goal_id UUID REFERENCES goals(id) ON DELETE SET NULL,
   due_date DATE,
@@ -46,7 +37,7 @@ CREATE TABLE IF NOT EXISTS tasks (
 -- Time blocks table
 CREATE TABLE IF NOT EXISTS time_blocks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
   start_time TIMESTAMPTZ NOT NULL,
   end_time TIMESTAMPTZ NOT NULL,
   type TEXT CHECK (type IN ('work', 'health', 'personal', 'learning', 'social', 'rest')) DEFAULT 'work',
@@ -58,7 +49,7 @@ CREATE TABLE IF NOT EXISTS time_blocks (
 -- Nutrition table
 CREATE TABLE IF NOT EXISTS nutrition (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
   food_name TEXT NOT NULL,
   macros JSONB DEFAULT '{}',
   timestamp TIMESTAMPTZ DEFAULT NOW(),
@@ -68,7 +59,7 @@ CREATE TABLE IF NOT EXISTS nutrition (
 -- Fitness table
 CREATE TABLE IF NOT EXISTS fitness (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
   exercise_name TEXT NOT NULL,
   sets INTEGER,
   reps INTEGER,
@@ -81,7 +72,7 @@ CREATE TABLE IF NOT EXISTS fitness (
 -- Values table (daily value ratings)
 CREATE TABLE IF NOT EXISTS values (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
   name TEXT NOT NULL,
   daily_rating INTEGER CHECK (daily_rating >= 1 AND daily_rating <= 10),
   timestamp TIMESTAMPTZ DEFAULT NOW(),
@@ -91,7 +82,7 @@ CREATE TABLE IF NOT EXISTS values (
 -- Reflections table
 CREATE TABLE IF NOT EXISTS reflections (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
   type TEXT CHECK (type IN ('evening', 'weekly', 'monthly', 'gratitude')) DEFAULT 'evening',
   content TEXT NOT NULL,
   timestamp TIMESTAMPTZ DEFAULT NOW(),
@@ -101,7 +92,7 @@ CREATE TABLE IF NOT EXISTS reflections (
 -- Notes table
 CREATE TABLE IF NOT EXISTS notes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
   content TEXT NOT NULL,
   timestamp TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -124,6 +115,7 @@ CREATE INDEX IF NOT EXISTS idx_reflections_user_id ON reflections(user_id);
 CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes(user_id);
 
 -- Row Level Security (RLS) policies
+-- Enable RLS on all tables
 ALTER TABLE habits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE goals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
@@ -134,7 +126,13 @@ ALTER TABLE values ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reflections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
 
--- Note: You'll need to create appropriate RLS policies based on your auth setup
--- Example policy for authenticated users:
--- CREATE POLICY "Users can only access their own data" ON habits
---   FOR ALL USING (auth.uid() = user_id);
+-- Permissive policies (allow all operations - tighten with auth later)
+CREATE POLICY "Allow all operations on habits" ON habits FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all operations on goals" ON goals FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all operations on tasks" ON tasks FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all operations on time_blocks" ON time_blocks FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all operations on nutrition" ON nutrition FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all operations on fitness" ON fitness FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all operations on values" ON values FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all operations on reflections" ON reflections FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all operations on notes" ON notes FOR ALL USING (true) WITH CHECK (true);

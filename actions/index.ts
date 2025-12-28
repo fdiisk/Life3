@@ -12,46 +12,130 @@ import {
 } from '@/lib/ai'
 import type { Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note, ParsedInput } from '@/lib/types'
 
-// Re-export database functions as server actions
-export const getTasks = db.getTasks
-export const createTask = db.createTask
-export const updateTask = db.updateTask
-export const deleteTask = db.deleteTask
+// Wrapped database functions as server actions
+export async function getTasks(userId: string, includeCompleted?: boolean) {
+  return await db.getTasks(userId, includeCompleted)
+}
 
-export const getHabits = db.getHabits
-export const createHabit = db.createHabit
-export const updateHabit = db.updateHabit
-export const completeHabit = db.completeHabit
-export const deleteHabit = db.deleteHabit
+export async function createTask(task: Parameters<typeof db.createTask>[0]) {
+  return await db.createTask(task)
+}
 
-export const getGoals = db.getGoals
-export const createGoal = db.createGoal
-export const updateGoal = db.updateGoal
-export const deleteGoal = db.deleteGoal
+export async function updateTask(id: string, updates: Parameters<typeof db.updateTask>[1]) {
+  return await db.updateTask(id, updates)
+}
 
-export const getTimeBlocks = db.getTimeBlocks
-export const createTimeBlock = db.createTimeBlock
-export const updateTimeBlock = db.updateTimeBlock
-export const deleteTimeBlock = db.deleteTimeBlock
+export async function deleteTask(id: string) {
+  return await db.deleteTask(id)
+}
 
-export const getNutrition = db.getNutrition
-export const createNutrition = db.createNutrition
-export const deleteNutrition = db.deleteNutrition
+export async function getHabits(userId: string) {
+  return await db.getHabits(userId)
+}
 
-export const getFitness = db.getFitness
-export const createFitness = db.createFitness
-export const deleteFitness = db.deleteFitness
+export async function createHabit(habit: Parameters<typeof db.createHabit>[0]) {
+  return await db.createHabit(habit)
+}
 
-export const getValues = db.getValues
-export const createValue = db.createValue
-export const updateValue = db.updateValue
+export async function updateHabit(id: string, updates: Parameters<typeof db.updateHabit>[1]) {
+  return await db.updateHabit(id, updates)
+}
 
-export const getReflections = db.getReflections
-export const createReflection = db.createReflection
+export async function completeHabit(id: string) {
+  return await db.completeHabit(id)
+}
 
-export const getNotes = db.getNotes
-export const createNote = db.createNote
-export const deleteNote = db.deleteNote
+export async function deleteHabit(id: string) {
+  return await db.deleteHabit(id)
+}
+
+export async function getGoals(userId: string) {
+  return await db.getGoals(userId)
+}
+
+export async function createGoal(goal: Parameters<typeof db.createGoal>[0]) {
+  return await db.createGoal(goal)
+}
+
+export async function updateGoal(id: string, updates: Parameters<typeof db.updateGoal>[1]) {
+  return await db.updateGoal(id, updates)
+}
+
+export async function deleteGoal(id: string) {
+  return await db.deleteGoal(id)
+}
+
+export async function getTimeBlocks(userId: string, date: string) {
+  return await db.getTimeBlocks(userId, date)
+}
+
+export async function createTimeBlock(block: Parameters<typeof db.createTimeBlock>[0]) {
+  return await db.createTimeBlock(block)
+}
+
+export async function updateTimeBlock(id: string, updates: Parameters<typeof db.updateTimeBlock>[1]) {
+  return await db.updateTimeBlock(id, updates)
+}
+
+export async function deleteTimeBlock(id: string) {
+  return await db.deleteTimeBlock(id)
+}
+
+export async function getNutrition(userId: string, date: string) {
+  return await db.getNutrition(userId, date)
+}
+
+export async function createNutrition(item: Parameters<typeof db.createNutrition>[0]) {
+  return await db.createNutrition(item)
+}
+
+export async function deleteNutrition(id: string) {
+  return await db.deleteNutrition(id)
+}
+
+export async function getFitness(userId: string, date: string) {
+  return await db.getFitness(userId, date)
+}
+
+export async function createFitness(item: Parameters<typeof db.createFitness>[0]) {
+  return await db.createFitness(item)
+}
+
+export async function deleteFitness(id: string) {
+  return await db.deleteFitness(id)
+}
+
+export async function getValues(userId: string, date: string) {
+  return await db.getValues(userId, date)
+}
+
+export async function createValue(value: Parameters<typeof db.createValue>[0]) {
+  return await db.createValue(value)
+}
+
+export async function updateValue(id: string, rating: number) {
+  return await db.updateValue(id, rating)
+}
+
+export async function getReflections(userId: string, limit?: number) {
+  return await db.getReflections(userId, limit)
+}
+
+export async function createReflection(reflection: Parameters<typeof db.createReflection>[0]) {
+  return await db.createReflection(reflection)
+}
+
+export async function getNotes(userId: string) {
+  return await db.getNotes(userId)
+}
+
+export async function createNote(note: Parameters<typeof db.createNote>[0]) {
+  return await db.createNote(note)
+}
+
+export async function deleteNote(id: string) {
+  return await db.deleteNote(id)
+}
 
 // AI parsing actions
 export async function parseInputAction(input: string) {

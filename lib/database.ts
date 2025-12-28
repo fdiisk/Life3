@@ -45,6 +45,13 @@ export async function getHabits(userId: string) {
   return data as Habit[]
 }
 
+export async function getHabitById(id: string) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase.from('habits').select('*').eq('id', id).single()
+  if (error) return null
+  return data as Habit
+}
+
 export async function createHabit(habit: Omit<Habit, 'id' | 'created_at' | 'streak' | 'last_done'>) {
   const supabase = createServerClient()
   const { data, error } = await supabase
@@ -101,6 +108,13 @@ export async function getGoals(userId: string) {
   const { data, error } = await supabase.from('goals').select('*').eq('user_id', userId)
   if (error) throw error
   return data as Goal[]
+}
+
+export async function getGoalById(id: string) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase.from('goals').select('*').eq('id', id).single()
+  if (error) return null
+  return data as Goal
 }
 
 export async function createGoal(goal: Omit<Goal, 'id' | 'created_at' | 'completed'>) {

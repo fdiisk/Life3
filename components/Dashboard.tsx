@@ -10,8 +10,21 @@ import ReflectionsNotes from './ReflectionsNotes'
 import GoalsManager from './GoalsManager'
 import DayFlowManager from './DayFlowManager'
 import QuickActions from './QuickActions'
+import SmartMetrics from './SmartMetrics'
+import SuggestionsPanel from './SuggestionsPanel'
 import * as actions from '@/actions'
 import type { Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note } from '@/lib/types'
+import type { AISuggestions } from '@/lib/ai-suggestions'
+
+interface DashboardMetrics {
+  streaks: Record<string, number>
+  goalProgress: Record<string, number>
+  valuesTrend: Record<string, number[]>
+  todayEfficiency: number
+  activeHabits: number
+  completedTasks: number
+  totalTasks: number
+}
 
 interface DashboardProps {
   userId: string
@@ -29,6 +42,9 @@ export default function Dashboard({ userId }: DashboardProps) {
   const [reflections, setReflections] = useState<Reflection[]>([])
   const [notes, setNotes] = useState<Note[]>([])
   const [themeSummary, setThemeSummary] = useState<string | null>(null)
+  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
+  const [suggestions, setSuggestions] = useState<AISuggestions | null>(null)
+  const [suggestedWidgets, setSuggestedWidgets] = useState<string[]>([])
 
   const today = new Date().toISOString().split('T')[0]
 
@@ -45,6 +61,9 @@ export default function Dashboard({ userId }: DashboardProps) {
         reflectionsData,
         notesData,
         summary,
+        metricsData,
+        patternsData,
+        suggestionsData,
       ] = await Promise.all([
         actions.getTasks(userId, true),
         actions.getHabits(userId),
@@ -56,6 +75,9 @@ export default function Dashboard({ userId }: DashboardProps) {
         actions.getReflections(userId),
         actions.getNotes(userId),
         actions.getThemeSummary(userId),
+        actions.getDashboardMetricsAction(userId),
+        actions.detectDataPatternsAction(userId),
+        actions.getSuggestionsAction(userId),
       ])
 
       setTasks(tasksData)
@@ -68,6 +90,9 @@ export default function Dashboard({ userId }: DashboardProps) {
       setReflections(reflectionsData)
       setNotes(notesData)
       setThemeSummary(summary)
+      setMetrics(metricsData)
+      setSuggestedWidgets(patternsData.suggestedWidgets)
+      setSuggestions(suggestionsData)
     } catch (error) {
       console.error('Failed to load data:', error)
     } finally {
@@ -111,6 +136,26 @@ export default function Dashboard({ userId }: DashboardProps) {
         {/* Quick Capture */}
         <div className="mb-6">
           <CaptureInput userId={userId} onSave={loadData} />
+        </div>
+
+        {/* Smart Metrics & Suggestions */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <SmartMetrics
+            metrics={metrics}
+            suggestedWidgets={suggestedWidgets}
+          />
+          <SuggestionsPanel
+            suggestions={suggestions}
+            userId={userId}
+            onAddHabit={async (habit) => {
+              await actions.createHabit(habit)
+              loadData()
+            }}
+            onAddGoal={async (goal) => {
+              await actions.createGoal(goal)
+              loadData()
+            }}
+          />
         </div>
 
         {/* Main Grid */}

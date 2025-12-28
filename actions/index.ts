@@ -257,3 +257,40 @@ export async function parseAndSaveInput(userId: string, input: string) {
 
   return results
 }
+
+// Derived metrics actions
+import {
+  getDashboardMetrics,
+  detectNewDataPatterns,
+  calculatePlannedVsActual,
+} from '@/lib/derived-metrics'
+
+export async function getDashboardMetricsAction(userId: string) {
+  return await getDashboardMetrics(userId)
+}
+
+export async function detectDataPatternsAction(userId: string) {
+  return await detectNewDataPatterns(userId)
+}
+
+export async function getPlannedVsActualAction(userId: string, date: string) {
+  return await calculatePlannedVsActual(userId, date)
+}
+
+// AI suggestions actions
+import { generateSuggestions, type AISuggestions } from '@/lib/ai-suggestions'
+
+export async function getSuggestionsAction(userId: string): Promise<AISuggestions | null> {
+  const [reflections, values, habits, goals] = await Promise.all([
+    db.getReflections(userId, 20),
+    db.getValues(userId, new Date().toISOString().split('T')[0]),
+    db.getHabits(userId),
+    db.getGoals(userId),
+  ])
+
+  if (reflections.length < 3 && values.length < 5) {
+    return null
+  }
+
+  return await generateSuggestions(reflections, values, habits, goals)
+}

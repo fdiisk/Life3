@@ -281,16 +281,20 @@ export async function getPlannedVsActualAction(userId: string, date: string) {
 import { generateSuggestions, type AISuggestions } from '@/lib/ai-suggestions'
 
 export async function getSuggestionsAction(userId: string): Promise<AISuggestions | null> {
-  const [reflections, values, habits, goals] = await Promise.all([
-    db.getReflections(userId, 20),
-    db.getValues(userId, new Date().toISOString().split('T')[0]),
-    db.getHabits(userId),
-    db.getGoals(userId),
-  ])
+  try {
+    const [reflections, values, habits, goals] = await Promise.all([
+      db.getReflections(userId, 20),
+      db.getValues(userId, new Date().toISOString().split('T')[0]),
+      db.getHabits(userId),
+      db.getGoals(userId),
+    ])
 
-  if (reflections.length < 3 && values.length < 5) {
+    if (reflections.length < 3 && values.length < 5) {
+      return null
+    }
+
+    return await generateSuggestions(reflections, values, habits, goals)
+  } catch {
     return null
   }
-
-  return await generateSuggestions(reflections, values, habits, goals)
 }

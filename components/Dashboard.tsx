@@ -125,12 +125,20 @@ export default function Dashboard({ userId }: DashboardProps) {
               day: 'numeric',
             })}</p>
           </div>
-          <a
-            href="/analytics"
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center gap-2"
-          >
-            📊 Analytics
-          </a>
+          <div className="flex gap-2">
+            <a
+              href="/settings"
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition flex items-center gap-2"
+            >
+              Settings
+            </a>
+            <a
+              href="/analytics"
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center gap-2"
+            >
+              Analytics
+            </a>
+          </div>
         </header>
 
         {/* Quick Capture */}
@@ -297,8 +305,8 @@ export default function Dashboard({ userId }: DashboardProps) {
                 await actions.deleteNote(id)
                 loadData()
               }}
-              onUpdateValue={async (name, rating) => {
-                await actions.upsertValue(userId, name, rating)
+              onBatchUpdateValues={async (ratings) => {
+                await actions.batchUpsertValues(userId, ratings)
                 loadData()
               }}
             />
@@ -318,8 +326,8 @@ export default function Dashboard({ userId }: DashboardProps) {
           await actions.completeHabit(id)
           loadData()
         }}
-        onUpdateValue={async (name, rating) => {
-          await actions.upsertValue(userId, name, rating)
+        onBatchUpdateValues={async (ratings) => {
+          await actions.batchUpsertValues(userId, ratings)
           loadData()
         }}
         onCreateReflection={async (reflection) => {

@@ -13,7 +13,7 @@ interface DayFlowManagerProps {
   values: Value[]
   userId: string
   onCompleteHabit: (id: string) => Promise<void>
-  onUpdateValue: (name: string, rating: number) => Promise<void>
+  onBatchUpdateValues: (ratings: Record<string, number>) => Promise<void>
   onCreateReflection: (reflection: Omit<Reflection, 'id' | 'created_at'>) => Promise<void>
 }
 
@@ -27,7 +27,7 @@ export default function DayFlowManager({
   values,
   userId,
   onCompleteHabit,
-  onUpdateValue,
+  onBatchUpdateValues,
   onCreateReflection,
 }: DayFlowManagerProps) {
   const [flowState, setFlowState] = useState<FlowState>('none')
@@ -73,7 +73,7 @@ export default function DayFlowManager({
         values={values}
         userId={userId}
         onCompleteHabit={onCompleteHabit}
-        onUpdateValue={onUpdateValue}
+        onBatchUpdateValues={onBatchUpdateValues}
         onComplete={() => completeFlow('morning')}
       />
     )
@@ -89,7 +89,7 @@ export default function DayFlowManager({
         values={values}
         userId={userId}
         onCreateReflection={onCreateReflection}
-        onUpdateValue={onUpdateValue}
+        onBatchUpdateValues={onBatchUpdateValues}
         onComplete={() => completeFlow('evening')}
       />
     )

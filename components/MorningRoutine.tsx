@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { Habit, Goal, Value } from '@/lib/types'
+import { CORE_VALUES } from '@/lib/constants'
 
 interface MorningRoutineProps {
   habits: Habit[]
@@ -9,11 +10,9 @@ interface MorningRoutineProps {
   values: Value[]
   userId: string
   onCompleteHabit: (id: string) => Promise<void>
-  onUpdateValue: (name: string, rating: number) => Promise<void>
+  onBatchUpdateValues: (ratings: Record<string, number>) => Promise<void>
   onComplete: () => void
 }
-
-const CORE_VALUES = ['Health', 'Family', 'Career', 'Growth', 'Joy']
 
 export default function MorningRoutine({
   habits,
@@ -21,7 +20,7 @@ export default function MorningRoutine({
   values,
   userId,
   onCompleteHabit,
-  onUpdateValue,
+  onBatchUpdateValues,
   onComplete,
 }: MorningRoutineProps) {
   const [step, setStep] = useState(0)
@@ -56,10 +55,8 @@ export default function MorningRoutine({
   const handleNext = async () => {
     if (step === 2) {
       setLoading(true)
-      // Save value ratings
-      for (const [name, rating] of Object.entries(valueRatings)) {
-        await onUpdateValue(name, rating)
-      }
+      // Save all value ratings in one batch call
+      await onBatchUpdateValues(valueRatings)
       setLoading(false)
     }
     if (step < 3) {

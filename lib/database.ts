@@ -2,7 +2,7 @@
 
 import { createServerClient } from './supabase/server'
 import type {
-  Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note
+  Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note, Weight, UserSettings
 } from './types'
 
 // Tasks
@@ -313,4 +313,57 @@ export async function deleteNote(id: string) {
   const supabase = createServerClient()
   const { error } = await supabase.from('notes').delete().eq('id', id)
   if (error) throw error
+}
+
+// Weight tracking
+export async function getWeightEntries(userId: string, limit = 30) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('weight')
+    .select('*')
+    .eq('user_id', userId)
+    .order('timestamp', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return data as Weight[]
+}
+
+export async function createWeightEntry(weight: Omit<Weight, 'id' | 'created_at'>) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase.from('weight').insert(weight).select().single()
+  if (error) throw error
+  return data as Weight
+}
+
+export async function deleteWeightEntry(id: string) {
+  const supabase = createServerClient()
+  const { error } = await supabase.from('weight').delete().eq('id', id)
+  if (error) throw error
+}
+
+// User Settings
+export async function getUserSettings(userId: string) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('user_settings')
+    .select('*')
+    .eq('user_id', userId)
+    .single()
+  if (error && error.code !== 'PGRST116') throw error
+  return data as UserSettings | null
+}
+
+export async function upsertUserSettings(userId: string, settings: Partial<Omit<UserSettings, 'id' | 'user_id' | 'created_at' | 'updated_at'>>) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('user_settings')
+    .upsert({
+      user_id: userId,
+      ...settings,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' })
+    .select()
+    .single()
+  if (error) throw error
+  return data as UserSettings
 }

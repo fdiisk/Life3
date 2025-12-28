@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import type { Task, Habit, Goal, TimeBlock, Reflection, Value } from '@/lib/types'
+import { CORE_VALUES } from '@/lib/constants'
 
 interface EveningCloseOutProps {
   tasks: Task[]
@@ -11,11 +12,9 @@ interface EveningCloseOutProps {
   values: Value[]
   userId: string
   onCreateReflection: (reflection: Omit<Reflection, 'id' | 'created_at'>) => Promise<void>
-  onUpdateValue: (name: string, rating: number) => Promise<void>
+  onBatchUpdateValues: (ratings: Record<string, number>) => Promise<void>
   onComplete: () => void
 }
-
-const CORE_VALUES = ['Health', 'Family', 'Career', 'Growth', 'Joy']
 
 export default function EveningCloseOut({
   tasks,
@@ -25,7 +24,7 @@ export default function EveningCloseOut({
   values,
   userId,
   onCreateReflection,
-  onUpdateValue,
+  onBatchUpdateValues,
   onComplete,
 }: EveningCloseOutProps) {
   const [step, setStep] = useState(0)
@@ -82,17 +81,16 @@ ${gratitude}
 - Time Blocked: ${totalTimeBlocked.toFixed(1)}h
       `.trim()
 
-      await onCreateReflection({
-        user_id: userId,
-        type: 'evening',
-        content: reflectionContent,
-        timestamp: new Date().toISOString(),
-      })
-
-      // Save value ratings
-      for (const [name, rating] of Object.entries(valueRatings)) {
-        await onUpdateValue(name, rating)
-      }
+      await Promise.all([
+        onCreateReflection({
+          user_id: userId,
+          type: 'evening',
+          content: reflectionContent,
+          timestamp: new Date().toISOString(),
+        }),
+        // Save all value ratings in one batch call
+        onBatchUpdateValues(valueRatings),
+      ])
       setLoading(false)
     }
 

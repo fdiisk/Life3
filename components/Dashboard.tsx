@@ -32,6 +32,8 @@ interface DashboardProps {
 
 export default function Dashboard({ userId }: DashboardProps) {
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
   const [habits, setHabits] = useState<Habit[]>([])
   const [goals, setGoals] = useState<Goal[]>([])
@@ -47,8 +49,24 @@ export default function Dashboard({ userId }: DashboardProps) {
   const [suggestedWidgets, setSuggestedWidgets] = useState<string[]>([])
 
   const today = new Date().toISOString().split('T')[0]
+  const [selectedDate, setSelectedDate] = useState(today)
+
+  // Helper for async actions with error handling
+  const withSaving = async (fn: () => Promise<void>) => {
+    setSaving(true)
+    setError(null)
+    try {
+      await fn()
+    } catch (err) {
+      console.error('Action failed:', err)
+      setError('Operation failed. Check if database tables exist.')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const loadData = useCallback(async () => {
+    setError(null)
     try {
       const [
         tasksData,
@@ -65,19 +83,19 @@ export default function Dashboard({ userId }: DashboardProps) {
         patternsData,
         suggestionsData,
       ] = await Promise.all([
-        actions.getTasks(userId, true),
-        actions.getHabits(userId),
-        actions.getGoals(userId),
-        actions.getTimeBlocks(userId, today),
-        actions.getNutrition(userId, today),
-        actions.getFitness(userId, today),
-        actions.getValues(userId, today),
-        actions.getReflections(userId),
-        actions.getNotes(userId),
-        actions.getThemeSummary(userId),
-        actions.getDashboardMetricsAction(userId),
-        actions.detectDataPatternsAction(userId),
-        actions.getSuggestionsAction(userId),
+        actions.getTasks(userId, true).catch(() => []),
+        actions.getHabits(userId).catch(() => []),
+        actions.getGoals(userId).catch(() => []),
+        actions.getTimeBlocks(userId, selectedDate).catch(() => []),
+        actions.getNutrition(userId, selectedDate).catch(() => []),
+        actions.getFitness(userId, selectedDate).catch(() => []),
+        actions.getValues(userId, selectedDate).catch(() => []),
+        actions.getReflections(userId).catch(() => []),
+        actions.getNotes(userId).catch(() => []),
+        actions.getThemeSummary(userId).catch(() => null),
+        actions.getDashboardMetricsAction(userId).catch(() => null),
+        actions.detectDataPatternsAction(userId).catch(() => ({ suggestedWidgets: [] })),
+        actions.getSuggestionsAction(userId).catch(() => null),
       ])
 
       setTasks(tasksData)
@@ -93,16 +111,25 @@ export default function Dashboard({ userId }: DashboardProps) {
       setMetrics(metricsData)
       setSuggestedWidgets(patternsData.suggestedWidgets)
       setSuggestions(suggestionsData)
-    } catch (error) {
-      console.error('Failed to load data:', error)
+    } catch (err) {
+      console.error('Failed to load data:', err)
+      setError('Failed to load data. Check if database tables exist in Supabase.')
     } finally {
       setLoading(false)
     }
-  }, [userId, today])
+  }, [userId, selectedDate])
 
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  // Reload when date changes
+  useEffect(() => {
+    if (!loading) {
+      setLoading(true)
+      loadData()
+    }
+  }, [selectedDate])
 
   if (loading) {
     return (
@@ -115,31 +142,96 @@ export default function Dashboard({ userId }: DashboardProps) {
   return (
     <main className="min-h-screen bg-gray-100 p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        <header className="mb-6 flex justify-between items-start">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">Life3</h1>
-            <p className="text-gray-500">{new Date().toLocaleDateString('en-US', {
-              weekday: 'long',
-              year: 'numeric',
-              month: 'long',
-              day: 'numeric',
-            })}</p>
+        <header className="mb-6 flex flex-col sm:flex-row justify-between items-start gap-4">
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800">Life3</h1>
+              <p className="text-gray-500">{new Date(selectedDate).toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+              })}</p>
+            </div>
+            {/* Date Selector */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const d = new Date(selectedDate)
+                  d.setDate(d.getDate() - 1)
+                  setSelectedDate(d.toISOString().split('T')[0])
+                }}
+                className="p-2 hover:bg-gray-200 rounded-lg transition"
+                title="Previous day"
+              >
+                ◀
+              </button>
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                max={today}
+                className="border rounded-lg px-3 py-1.5 text-sm"
+              />
+              <button
+                onClick={() => {
+                  const d = new Date(selectedDate)
+                  d.setDate(d.getDate() + 1)
+                  const newDate = d.toISOString().split('T')[0]
+                  if (newDate <= today) setSelectedDate(newDate)
+                }}
+                disabled={selectedDate >= today}
+                className="p-2 hover:bg-gray-200 rounded-lg transition disabled:opacity-30"
+                title="Next day"
+              >
+                ▶
+              </button>
+              {selectedDate !== today && (
+                <button
+                  onClick={() => setSelectedDate(today)}
+                  className="px-3 py-1.5 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
+                >
+                  Today
+                </button>
+              )}
+            </div>
           </div>
           <div className="flex gap-2">
             <a
+              href="/help"
+              className="px-4 py-2 bg-amber-100 text-amber-700 rounded-lg hover:bg-amber-200 transition"
+            >
+              Help
+            </a>
+            <a
               href="/settings"
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition flex items-center gap-2"
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
             >
               Settings
             </a>
             <a
               href="/analytics"
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition flex items-center gap-2"
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
             >
               Analytics
             </a>
           </div>
         </header>
+
+        {/* Error/Status Banner */}
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            <strong>Error:</strong> {error}
+            <p className="text-sm mt-1">
+              Make sure you&apos;ve run the SQL schema in Supabase SQL Editor.
+            </p>
+          </div>
+        )}
+        {saving && (
+          <div className="mb-4 p-2 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-center">
+            Saving...
+          </div>
+        )}
 
         {/* Quick Capture */}
         <div className="mb-6">
@@ -156,12 +248,16 @@ export default function Dashboard({ userId }: DashboardProps) {
             suggestions={suggestions}
             userId={userId}
             onAddHabit={async (habit) => {
-              await actions.createHabit(habit)
-              loadData()
+              await withSaving(async () => {
+                await actions.createHabit(habit)
+                await loadData()
+              })
             }}
             onAddGoal={async (goal) => {
-              await actions.createGoal(goal)
-              loadData()
+              await withSaving(async () => {
+                await actions.createGoal(goal)
+                await loadData()
+              })
             }}
           />
         </div>
@@ -176,20 +272,28 @@ export default function Dashboard({ userId }: DashboardProps) {
               habits={habits}
               userId={userId}
               onCreateBlock={async (block) => {
-                await actions.createTimeBlock(block)
-                loadData()
+                await withSaving(async () => {
+                  await actions.createTimeBlock(block)
+                  await loadData()
+                })
               }}
               onDeleteBlock={async (id) => {
-                await actions.deleteTimeBlock(id)
-                loadData()
+                await withSaving(async () => {
+                  await actions.deleteTimeBlock(id)
+                  await loadData()
+                })
               }}
               onCompleteTask={async (id) => {
-                await actions.updateTask(id, { completed: true })
-                loadData()
+                await withSaving(async () => {
+                  await actions.updateTask(id, { completed: true })
+                  await loadData()
+                })
               }}
               onCompleteHabit={async (id) => {
-                await actions.completeHabit(id)
-                loadData()
+                await withSaving(async () => {
+                  await actions.completeHabit(id)
+                  await loadData()
+                })
               }}
             />
 

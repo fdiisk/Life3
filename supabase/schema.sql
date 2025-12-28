@@ -1,5 +1,6 @@
 -- Life3 Database Schema
 -- Run this in Supabase SQL Editor to create tables
+-- Safe to run multiple times (idempotent)
 
 -- Goals table (created first due to foreign key references)
 CREATE TABLE IF NOT EXISTS goals (
@@ -151,14 +152,21 @@ ALTER TABLE weight ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 
 -- Permissive policies (allow all operations - tighten with auth later)
-CREATE POLICY "Allow all operations on habits" ON habits FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all operations on goals" ON goals FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all operations on tasks" ON tasks FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all operations on time_blocks" ON time_blocks FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all operations on nutrition" ON nutrition FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all operations on fitness" ON fitness FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all operations on values" ON values FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all operations on reflections" ON reflections FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all operations on notes" ON notes FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all operations on weight" ON weight FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Allow all operations on user_settings" ON user_settings FOR ALL USING (true) WITH CHECK (true);
+-- Using DO block to avoid "already exists" errors
+DO $$
+DECLARE
+  tables TEXT[] := ARRAY['habits', 'goals', 'tasks', 'time_blocks', 'nutrition', 'fitness', 'values', 'reflections', 'notes', 'weight', 'user_settings'];
+  t TEXT;
+BEGIN
+  FOREACH t IN ARRAY tables
+  LOOP
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE tablename = t
+      AND policyname = 'Allow all operations on ' || t
+    ) THEN
+      EXECUTE format('CREATE POLICY "Allow all operations on %I" ON %I FOR ALL USING (true) WITH CHECK (true)', t, t);
+    END IF;
+  END LOOP;
+END
+$$;

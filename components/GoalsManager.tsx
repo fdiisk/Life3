@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { Goal, Task, Habit } from '@/lib/types'
+import type { Goal, Task, Habit, ParsedGoalsResult } from '@/lib/types'
 
 interface GoalsManagerProps {
   goals: Goal[]
@@ -10,11 +10,7 @@ interface GoalsManagerProps {
   onCreateGoal: (goal: Omit<Goal, 'id' | 'created_at' | 'completed'>) => Promise<void>
   onUpdateGoal: (id: string, updates: Partial<Goal>) => Promise<void>
   onDeleteGoal: (id: string) => Promise<void>
-  onParseGoals: (input: string) => Promise<{
-    goals: Partial<Goal>[]
-    tasks: { title: string; goal_index: number }[]
-    habits: { name: string; frequency: string; goal_index: number }[]
-  }>
+  onParseGoals: (input: string) => Promise<ParsedGoalsResult>
   onCreateTask: (task: Omit<Task, 'id' | 'created_at'>) => Promise<void>
   onCreateHabit: (habit: Omit<Habit, 'id' | 'created_at' | 'streak' | 'last_done'>) => Promise<void>
   userId: string

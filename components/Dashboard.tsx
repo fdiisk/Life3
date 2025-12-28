@@ -8,6 +8,8 @@ import NutritionLogger from './NutritionLogger'
 import FitnessLogger from './FitnessLogger'
 import ReflectionsNotes from './ReflectionsNotes'
 import GoalsManager from './GoalsManager'
+import DayFlowManager from './DayFlowManager'
+import QuickActions from './QuickActions'
 import * as actions from '@/actions'
 import type { Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note } from '@/lib/types'
 
@@ -258,6 +260,50 @@ export default function Dashboard({ userId }: DashboardProps) {
           </div>
         </div>
       </div>
+
+      {/* Day Flow Manager - Morning/Evening Routines */}
+      <DayFlowManager
+        tasks={tasks}
+        habits={habits}
+        goals={goals}
+        timeBlocks={timeBlocks}
+        values={values}
+        userId={userId}
+        onCompleteHabit={async (id) => {
+          await actions.completeHabit(id)
+          loadData()
+        }}
+        onUpdateValue={async (name, rating) => {
+          await actions.upsertValue(userId, name, rating)
+          loadData()
+        }}
+        onCreateReflection={async (reflection) => {
+          await actions.createReflection(reflection)
+          loadData()
+        }}
+      />
+
+      {/* Quick Actions FAB */}
+      <QuickActions
+        habits={habits}
+        userId={userId}
+        onCompleteHabit={async (id) => {
+          await actions.completeHabit(id)
+          loadData()
+        }}
+        onQuickTask={async (task) => {
+          await actions.createTask(task)
+          loadData()
+        }}
+        onQuickNote={async (content) => {
+          await actions.createNote({
+            user_id: userId,
+            content,
+            timestamp: new Date().toISOString(),
+          })
+          loadData()
+        }}
+      />
     </main>
   )
 }

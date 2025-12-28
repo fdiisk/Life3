@@ -1,4 +1,4 @@
-import { ParsedInput } from './types'
+import { ParsedInput, ParsedGoalsResult } from './types'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
@@ -65,7 +65,7 @@ Rules:
   }
 }
 
-export async function parseGoals(input: string): Promise<Partial<ParsedInput>> {
+export async function parseGoals(input: string): Promise<ParsedGoalsResult> {
   const systemPrompt = `Parse the input into structured goals with linked tasks and habits.
 Return JSON:
 {
@@ -81,9 +81,19 @@ Return ONLY valid JSON.`
   try {
     const jsonMatch = text.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
-      return JSON.parse(jsonMatch[0])
+      const parsed = JSON.parse(jsonMatch[0])
+      return {
+        goals: parsed.goals || [],
+        tasks: parsed.tasks || [],
+        habits: parsed.habits || [],
+      }
     }
-    return JSON.parse(text)
+    const parsed = JSON.parse(text)
+    return {
+      goals: parsed.goals || [],
+      tasks: parsed.tasks || [],
+      habits: parsed.habits || [],
+    }
   } catch {
     return { goals: [], tasks: [], habits: [] }
   }

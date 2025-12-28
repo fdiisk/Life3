@@ -33,7 +33,7 @@ export default function HabitsTasks({
   const [activeTab, setActiveTab] = useState<'tasks' | 'habits'>('tasks')
   const [showAddModal, setShowAddModal] = useState(false)
   const [newTask, setNewTask] = useState({ title: '', goal_id: '', due_date: '' })
-  const [newHabit, setNewHabit] = useState({ name: '', frequency: 'daily' as const })
+  const [newHabit, setNewHabit] = useState<{ name: string; frequency: 'daily' | 'weekly' | 'monthly' }>({ name: '', frequency: 'daily' })
   const [showCompleted, setShowCompleted] = useState(false)
 
   const handleAddTask = async () => {

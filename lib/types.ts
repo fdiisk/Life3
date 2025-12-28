@@ -110,6 +110,13 @@ export interface ParsedInput {
   goals: Partial<Goal>[]
 }
 
+// Specific return type for parseGoals
+export interface ParsedGoalsResult {
+  goals: Partial<Goal>[]
+  tasks: { title: string; goal_index: number }[]
+  habits: { name: string; frequency: string; goal_index: number }[]
+}
+
 export type LifeArea = TimeBlock['type']
 
 export const LIFE_AREA_COLORS: Record<LifeArea, string> = {

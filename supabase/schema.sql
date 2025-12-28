@@ -98,6 +98,25 @@ CREATE TABLE IF NOT EXISTS notes (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Weight tracking table
+CREATE TABLE IF NOT EXISTS weight (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  weight_kg DECIMAL NOT NULL,
+  timestamp TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- User settings table
+CREATE TABLE IF NOT EXISTS user_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT UNIQUE NOT NULL,
+  core_values TEXT[] DEFAULT ARRAY['Health', 'Family', 'Career', 'Growth', 'Joy'],
+  target_weight_kg DECIMAL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_habits_user_id ON habits(user_id);
 CREATE INDEX IF NOT EXISTS idx_goals_user_id ON goals(user_id);
@@ -113,6 +132,9 @@ CREATE INDEX IF NOT EXISTS idx_fitness_timestamp ON fitness(timestamp);
 CREATE INDEX IF NOT EXISTS idx_values_user_id ON values(user_id);
 CREATE INDEX IF NOT EXISTS idx_reflections_user_id ON reflections(user_id);
 CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes(user_id);
+CREATE INDEX IF NOT EXISTS idx_weight_user_id ON weight(user_id);
+CREATE INDEX IF NOT EXISTS idx_weight_timestamp ON weight(timestamp);
+CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id);
 
 -- Row Level Security (RLS) policies
 -- Enable RLS on all tables
@@ -125,6 +147,8 @@ ALTER TABLE fitness ENABLE ROW LEVEL SECURITY;
 ALTER TABLE values ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reflections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE weight ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 
 -- Permissive policies (allow all operations - tighten with auth later)
 CREATE POLICY "Allow all operations on habits" ON habits FOR ALL USING (true) WITH CHECK (true);
@@ -136,3 +160,5 @@ CREATE POLICY "Allow all operations on fitness" ON fitness FOR ALL USING (true) 
 CREATE POLICY "Allow all operations on values" ON values FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all operations on reflections" ON reflections FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all operations on notes" ON notes FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all operations on weight" ON weight FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all operations on user_settings" ON user_settings FOR ALL USING (true) WITH CHECK (true);

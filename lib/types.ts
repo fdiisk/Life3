@@ -100,6 +100,23 @@ export interface Note {
   created_at?: string
 }
 
+export interface Weight {
+  id: string
+  user_id: string
+  weight_kg: number
+  timestamp: string
+  created_at?: string
+}
+
+export interface UserSettings {
+  id: string
+  user_id: string
+  core_values: string[]
+  target_weight_kg: number | null
+  created_at?: string
+  updated_at?: string
+}
+
 // AI Parsing Types
 export interface ParsedInput {
   tasks: Partial<Task>[]

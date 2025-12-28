@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import type { Reflection, Note, Value } from '@/lib/types'
+import { CORE_VALUES } from '@/lib/constants'
 
 interface ReflectionsNotesProps {
   reflections: Reflection[]
@@ -11,11 +12,9 @@ interface ReflectionsNotesProps {
   onCreateReflection: (reflection: Omit<Reflection, 'id' | 'created_at'>) => Promise<void>
   onCreateNote: (note: Omit<Note, 'id' | 'created_at'>) => Promise<void>
   onDeleteNote: (id: string) => Promise<void>
-  onUpdateValue: (name: string, rating: number) => Promise<void>
+  onBatchUpdateValues: (ratings: Record<string, number>) => Promise<void>
   userId: string
 }
-
-const DEFAULT_VALUES = ['Focus', 'Growth', 'Respect', 'Patience', 'Gratitude']
 
 export default function ReflectionsNotes({
   reflections,
@@ -25,13 +24,46 @@ export default function ReflectionsNotes({
   onCreateReflection,
   onCreateNote,
   onDeleteNote,
-  onUpdateValue,
+  onBatchUpdateValues,
   userId,
 }: ReflectionsNotesProps) {
   const [activeTab, setActiveTab] = useState<'reflection' | 'notes' | 'values'>('reflection')
   const [reflection, setReflection] = useState({ wentWell: '', evenBetterIf: '' })
   const [noteInput, setNoteInput] = useState('')
   const [saving, setSaving] = useState(false)
+  const [localRatings, setLocalRatings] = useState<Record<string, number>>({})
+  const [valuesDirty, setValuesDirty] = useState(false)
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Initialize local ratings from server values
+  useEffect(() => {
+    const initial: Record<string, number> = {}
+    CORE_VALUES.forEach((v) => {
+      const existing = values.find((val) => val.name === v)
+      initial[v] = existing?.daily_rating || 5
+    })
+    setLocalRatings(initial)
+  }, [values])
+
+  // Debounced save - waits 800ms after last change
+  const debouncedSave = useCallback((ratings: Record<string, number>) => {
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current)
+    }
+    saveTimeoutRef.current = setTimeout(async () => {
+      setSaving(true)
+      await onBatchUpdateValues(ratings)
+      setSaving(false)
+      setValuesDirty(false)
+    }, 800)
+  }, [onBatchUpdateValues])
+
+  const handleValueChange = (name: string, rating: number) => {
+    const newRatings = { ...localRatings, [name]: rating }
+    setLocalRatings(newRatings)
+    setValuesDirty(true)
+    debouncedSave(newRatings)
+  }
 
   const handleSaveReflection = async () => {
     if (!reflection.wentWell.trim() && !reflection.evenBetterIf.trim()) return
@@ -66,7 +98,7 @@ export default function ReflectionsNotes({
   }
 
   const getValueRating = (name: string) => {
-    return values.find((v) => v.name === name)?.daily_rating || 5
+    return localRatings[name] ?? values.find((v) => v.name === name)?.daily_rating ?? 5
   }
 
   return (
@@ -200,8 +232,15 @@ export default function ReflectionsNotes({
       {/* Values Tab */}
       {activeTab === 'values' && (
         <div className="space-y-4">
-          <p className="text-sm text-gray-500">Rate how you lived each value today (1-10)</p>
-          {DEFAULT_VALUES.map((valueName) => (
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500">Rate how you lived each value today (1-10)</p>
+            {valuesDirty && (
+              <span className="text-xs text-amber-600">
+                {saving ? 'Saving...' : 'Unsaved changes'}
+              </span>
+            )}
+          </div>
+          {CORE_VALUES.map((valueName) => (
             <div key={valueName} className="flex items-center gap-3">
               <span className="w-24 font-medium">{valueName}</span>
               <input
@@ -209,8 +248,8 @@ export default function ReflectionsNotes({
                 min="1"
                 max="10"
                 value={getValueRating(valueName)}
-                onChange={(e) => onUpdateValue(valueName, Number(e.target.value))}
-                className="flex-1"
+                onChange={(e) => handleValueChange(valueName, Number(e.target.value))}
+                className="flex-1 accent-blue-500"
               />
               <span className="w-8 text-center font-bold text-blue-600">
                 {getValueRating(valueName)}
@@ -222,8 +261,8 @@ export default function ReflectionsNotes({
               Average:{' '}
               <span className="font-bold">
                 {(
-                  DEFAULT_VALUES.reduce((acc, v) => acc + getValueRating(v), 0) /
-                  DEFAULT_VALUES.length
+                  CORE_VALUES.reduce((acc, v) => acc + getValueRating(v), 0) /
+                  CORE_VALUES.length
                 ).toFixed(1)}
               </span>
             </p>

@@ -180,6 +180,31 @@ export async function upsertValue(userId: string, name: string, rating: number) 
   }
 }
 
+// Batch upsert values - much faster than individual calls
+export async function batchUpsertValues(userId: string, ratings: Record<string, number>) {
+  const today = new Date().toISOString().split('T')[0]
+  const existingValues = await db.getValues(userId, today)
+  const existingMap = new Map(existingValues.map(v => [v.name, v]))
+
+  const results = await Promise.all(
+    Object.entries(ratings).map(async ([name, rating]) => {
+      const existing = existingMap.get(name)
+      if (existing) {
+        return await db.updateValue(existing.id, rating)
+      } else {
+        return await db.createValue({
+          user_id: userId,
+          name,
+          daily_rating: rating,
+          timestamp: new Date().toISOString(),
+        })
+      }
+    })
+  )
+
+  return results
+}
+
 // Batch parsing - processes multiple inputs in one API call
 export async function batchParseAction(inputs: string[]) {
   return await batchParseInputs(inputs)
@@ -381,4 +406,26 @@ export async function getSuggestionsAction(userId: string): Promise<AISuggestion
   } catch {
     return null
   }
+}
+
+// Weight tracking actions
+export async function getWeightEntries(userId: string, limit?: number) {
+  return await db.getWeightEntries(userId, limit)
+}
+
+export async function createWeightEntry(weight: Parameters<typeof db.createWeightEntry>[0]) {
+  return await db.createWeightEntry(weight)
+}
+
+export async function deleteWeightEntry(id: string) {
+  return await db.deleteWeightEntry(id)
+}
+
+// User settings actions
+export async function getUserSettings(userId: string) {
+  return await db.getUserSettings(userId)
+}
+
+export async function updateUserSettings(userId: string, settings: Parameters<typeof db.upsertUserSettings>[1]) {
+  return await db.upsertUserSettings(userId, settings)
 }

@@ -1,17 +1,21 @@
 'use client'
 
 import { useState, useRef, useCallback, useEffect } from 'react'
-import type { Reflection, Note, Value } from '@/lib/types'
+import type { Reflection, Note, Value, Improvement } from '@/lib/types'
 import { CORE_VALUES } from '@/lib/constants'
 
 interface ReflectionsNotesProps {
   reflections: Reflection[]
   notes: Note[]
+  improvements: Improvement[]
   values: Value[]
   themeSummary: string | null
   onCreateReflection: (reflection: Omit<Reflection, 'id' | 'created_at'>) => Promise<void>
   onCreateNote: (note: Omit<Note, 'id' | 'created_at'>) => Promise<void>
+  onUpdateNote: (id: string, updates: Partial<Note>) => Promise<void>
   onDeleteNote: (id: string) => Promise<void>
+  onCreateImprovement: (improvement: Omit<Improvement, 'id' | 'created_at'>) => Promise<void>
+  onUpdateImprovement: (id: string, updates: Partial<Improvement>) => Promise<void>
   onBatchUpdateValues: (ratings: Record<string, number>) => Promise<void>
   userId: string
   customValues?: string[]
@@ -20,20 +24,26 @@ interface ReflectionsNotesProps {
 export default function ReflectionsNotes({
   reflections,
   notes,
+  improvements,
   values,
   themeSummary,
   onCreateReflection,
   onCreateNote,
+  onUpdateNote,
   onDeleteNote,
+  onCreateImprovement,
+  onUpdateImprovement,
   onBatchUpdateValues,
   userId,
   customValues,
 }: ReflectionsNotesProps) {
   // Use custom values if provided, otherwise fall back to defaults
   const valuesList = customValues?.length ? customValues : [...CORE_VALUES]
-  const [activeTab, setActiveTab] = useState<'reflection' | 'notes' | 'values'>('reflection')
+  const [activeTab, setActiveTab] = useState<'reflection' | 'notes' | 'improvements' | 'values'>('reflection')
   const [reflection, setReflection] = useState({ wentWell: '', evenBetterIf: '' })
   const [noteInput, setNoteInput] = useState('')
+  const [improvementInput, setImprovementInput] = useState('')
+  const [showArchived, setShowArchived] = useState(false)
   const [saving, setSaving] = useState(false)
   const [localRatings, setLocalRatings] = useState<Record<string, number>>({})
   const [valuesDirty, setValuesDirty] = useState(false)
@@ -101,6 +111,31 @@ export default function ReflectionsNotes({
     }
   }
 
+  const handleSaveImprovement = async () => {
+    if (!improvementInput.trim()) return
+    setSaving(true)
+    try {
+      await onCreateImprovement({
+        user_id: userId,
+        content: improvementInput,
+        completed: false,
+        archived: false,
+        timestamp: new Date().toISOString(),
+      })
+      setImprovementInput('')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleToggleImprovement = async (id: string, completed: boolean) => {
+    await onUpdateImprovement(id, { completed: !completed })
+  }
+
+  const handleArchiveImprovement = async (id: string) => {
+    await onUpdateImprovement(id, { archived: true })
+  }
+
   const getValueRating = (name: string) => {
     return localRatings[name] ?? values.find((v) => v.name === name)?.daily_rating ?? 5
   }
@@ -120,6 +155,12 @@ export default function ReflectionsNotes({
           className={`pb-2 px-1 ${activeTab === 'notes' ? 'border-b-2 border-blue-500 font-medium' : 'text-gray-500'}`}
         >
           Notes
+        </button>
+        <button
+          onClick={() => setActiveTab('improvements')}
+          className={`pb-2 px-1 ${activeTab === 'improvements' ? 'border-b-2 border-green-500 font-medium' : 'text-gray-500'}`}
+        >
+          Improvements
         </button>
         <button
           onClick={() => setActiveTab('values')}
@@ -229,6 +270,88 @@ export default function ReflectionsNotes({
                 </button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Improvements Tab */}
+      {activeTab === 'improvements' && (
+        <div className="space-y-4">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={improvementInput}
+              onChange={(e) => setImprovementInput(e.target.value)}
+              placeholder="App improvement suggestion..."
+              className="flex-1 border rounded-lg p-2"
+              onKeyDown={(e) => e.key === 'Enter' && handleSaveImprovement()}
+            />
+            <button
+              onClick={handleSaveImprovement}
+              disabled={saving || !improvementInput.trim()}
+              className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50"
+            >
+              Add
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-sm text-gray-500">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(e) => setShowArchived(e.target.checked)}
+                className="rounded"
+              />
+              Show archived
+            </label>
+            <span className="text-xs text-gray-400">
+              {improvements.filter(i => !i.archived && !i.completed).length} pending
+            </span>
+          </div>
+
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {improvements.length === 0 && (
+              <p className="text-gray-400 text-center py-4">No improvements yet</p>
+            )}
+            {improvements
+              .filter(imp => showArchived || !imp.archived)
+              .map((improvement) => (
+                <div
+                  key={improvement.id}
+                  className={`flex items-start justify-between p-2 border rounded ${
+                    improvement.archived ? 'bg-gray-100 opacity-60' : improvement.completed ? 'bg-green-50' : ''
+                  }`}
+                >
+                  <div className="flex items-start gap-2 flex-1">
+                    <input
+                      type="checkbox"
+                      checked={improvement.completed}
+                      onChange={() => handleToggleImprovement(improvement.id, improvement.completed)}
+                      disabled={improvement.archived}
+                      className="mt-1 rounded accent-green-500"
+                    />
+                    <div className="flex-1">
+                      <p className={`text-sm ${improvement.completed ? 'line-through text-gray-500' : ''}`}>
+                        {improvement.content}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {new Date(improvement.timestamp).toLocaleString()}
+                        {improvement.archived && ' • Archived'}
+                      </p>
+                    </div>
+                  </div>
+                  {!improvement.archived && (
+                    <button
+                      onClick={() => handleArchiveImprovement(improvement.id)}
+                      className="text-gray-400 hover:text-orange-500 ml-2 text-xs"
+                      title="Archive"
+                    >
+                      Archive
+                    </button>
+                  )}
+                </div>
+              ))}
           </div>
         </div>
       )}

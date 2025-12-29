@@ -96,6 +96,17 @@ export interface Note {
   id: string
   user_id: string
   content: string
+  completed?: boolean
+  timestamp: string
+  created_at?: string
+}
+
+export interface Improvement {
+  id: string
+  user_id: string
+  content: string
+  completed: boolean
+  archived: boolean
   timestamp: string
   created_at?: string
 }

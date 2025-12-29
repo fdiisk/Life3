@@ -429,3 +429,25 @@ export async function getUserSettings(userId: string) {
 export async function updateUserSettings(userId: string, settings: Parameters<typeof db.upsertUserSettings>[1]) {
   return await db.upsertUserSettings(userId, settings)
 }
+
+// Improvements actions
+export async function getImprovements(userId: string, includeArchived?: boolean) {
+  return await db.getImprovements(userId, includeArchived)
+}
+
+export async function createImprovement(improvement: Parameters<typeof db.createImprovement>[0]) {
+  return await db.createImprovement(improvement)
+}
+
+export async function updateImprovement(id: string, updates: Parameters<typeof db.updateImprovement>[1]) {
+  return await db.updateImprovement(id, updates)
+}
+
+export async function deleteImprovement(id: string) {
+  return await db.deleteImprovement(id)
+}
+
+// Note update action
+export async function updateNote(id: string, updates: Parameters<typeof db.updateNote>[1]) {
+  return await db.updateNote(id, updates)
+}

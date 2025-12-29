@@ -99,6 +99,17 @@ CREATE TABLE IF NOT EXISTS notes (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Improvements table (app feedback with tickboxes and archive)
+CREATE TABLE IF NOT EXISTS improvements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  content TEXT NOT NULL,
+  completed BOOLEAN DEFAULT FALSE,
+  archived BOOLEAN DEFAULT FALSE,
+  timestamp TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Weight tracking table
 CREATE TABLE IF NOT EXISTS weight (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -133,6 +144,8 @@ CREATE INDEX IF NOT EXISTS idx_fitness_timestamp ON fitness(timestamp);
 CREATE INDEX IF NOT EXISTS idx_values_user_id ON values(user_id);
 CREATE INDEX IF NOT EXISTS idx_reflections_user_id ON reflections(user_id);
 CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes(user_id);
+CREATE INDEX IF NOT EXISTS idx_improvements_user_id ON improvements(user_id);
+CREATE INDEX IF NOT EXISTS idx_improvements_archived ON improvements(archived);
 CREATE INDEX IF NOT EXISTS idx_weight_user_id ON weight(user_id);
 CREATE INDEX IF NOT EXISTS idx_weight_timestamp ON weight(timestamp);
 CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id);
@@ -148,6 +161,7 @@ ALTER TABLE fitness ENABLE ROW LEVEL SECURITY;
 ALTER TABLE values ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reflections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE improvements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE weight ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 
@@ -155,7 +169,7 @@ ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 -- Using DO block to avoid "already exists" errors
 DO $$
 DECLARE
-  tables TEXT[] := ARRAY['habits', 'goals', 'tasks', 'time_blocks', 'nutrition', 'fitness', 'values', 'reflections', 'notes', 'weight', 'user_settings'];
+  tables TEXT[] := ARRAY['habits', 'goals', 'tasks', 'time_blocks', 'nutrition', 'fitness', 'values', 'reflections', 'notes', 'improvements', 'weight', 'user_settings'];
   t TEXT;
 BEGIN
   FOREACH t IN ARRAY tables

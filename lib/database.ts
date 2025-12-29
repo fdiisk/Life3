@@ -2,7 +2,7 @@
 
 import { createServerClient } from './supabase/server'
 import type {
-  Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note, Weight, UserSettings
+  Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note, Weight, UserSettings, Improvement
 } from './types'
 
 // Tasks
@@ -366,4 +366,50 @@ export async function upsertUserSettings(userId: string, settings: Partial<Omit<
     .single()
   if (error) throw error
   return data as UserSettings
+}
+
+// Improvements (app feedback)
+export async function getImprovements(userId: string, includeArchived = false) {
+  const supabase = createServerClient()
+  let query = supabase
+    .from('improvements')
+    .select('*')
+    .eq('user_id', userId)
+    .order('timestamp', { ascending: false })
+
+  if (!includeArchived) {
+    query = query.eq('archived', false)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+  return data as Improvement[]
+}
+
+export async function createImprovement(improvement: Omit<Improvement, 'id' | 'created_at'>) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase.from('improvements').insert(improvement).select().single()
+  if (error) throw error
+  return data as Improvement
+}
+
+export async function updateImprovement(id: string, updates: Partial<Improvement>) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase.from('improvements').update(updates).eq('id', id).select().single()
+  if (error) throw error
+  return data as Improvement
+}
+
+export async function deleteImprovement(id: string) {
+  const supabase = createServerClient()
+  const { error } = await supabase.from('improvements').delete().eq('id', id)
+  if (error) throw error
+}
+
+// Update note completion status
+export async function updateNote(id: string, updates: Partial<Note>) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase.from('notes').update(updates).eq('id', id).select().single()
+  if (error) throw error
+  return data as Note
 }

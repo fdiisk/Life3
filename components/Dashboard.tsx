@@ -13,7 +13,7 @@ import QuickActions from './QuickActions'
 import SmartMetrics from './SmartMetrics'
 import SuggestionsPanel from './SuggestionsPanel'
 import * as actions from '@/actions'
-import type { Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note, UserSettings } from '@/lib/types'
+import type { Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note, Improvement, UserSettings } from '@/lib/types'
 import type { AISuggestions } from '@/lib/ai-suggestions'
 import { CORE_VALUES } from '@/lib/constants'
 
@@ -44,6 +44,7 @@ export default function Dashboard({ userId }: DashboardProps) {
   const [values, setValues] = useState<Value[]>([])
   const [reflections, setReflections] = useState<Reflection[]>([])
   const [notes, setNotes] = useState<Note[]>([])
+  const [improvements, setImprovements] = useState<Improvement[]>([])
   const [themeSummary, setThemeSummary] = useState<string | null>(null)
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
   const [suggestions, setSuggestions] = useState<AISuggestions | null>(null)
@@ -80,6 +81,7 @@ export default function Dashboard({ userId }: DashboardProps) {
         valuesData,
         reflectionsData,
         notesData,
+        improvementsData,
         summary,
         metricsData,
         patternsData,
@@ -95,6 +97,7 @@ export default function Dashboard({ userId }: DashboardProps) {
         actions.getValues(userId, selectedDate).catch(() => []),
         actions.getReflections(userId).catch(() => []),
         actions.getNotes(userId).catch(() => []),
+        actions.getImprovements(userId).catch(() => []),
         actions.getThemeSummary(userId).catch(() => null),
         actions.getDashboardMetricsAction(userId).catch(() => null),
         actions.detectDataPatternsAction(userId).catch(() => ({ suggestedWidgets: [] })),
@@ -111,6 +114,7 @@ export default function Dashboard({ userId }: DashboardProps) {
       setValues(valuesData)
       setReflections(reflectionsData)
       setNotes(notesData)
+      setImprovements(improvementsData)
       setThemeSummary(summary)
       setMetrics(metricsData)
       setSuggestedWidgets(patternsData.suggestedWidgets)
@@ -279,28 +283,48 @@ export default function Dashboard({ userId }: DashboardProps) {
               habits={habits}
               userId={userId}
               onCreateBlock={async (block) => {
-                await withSaving(async () => {
+                // Optimistic: add temp block immediately
+                const tempId = 'temp-' + Date.now()
+                const tempBlock = { ...block, id: tempId, created_at: new Date().toISOString() } as TimeBlock
+                setTimeBlocks(prev => [...prev, tempBlock])
+                try {
                   await actions.createTimeBlock(block)
-                  await loadData()
-                })
+                  // Refresh to get real ID
+                  const blocks = await actions.getTimeBlocks(userId, selectedDate)
+                  setTimeBlocks(blocks)
+                } catch {
+                  setTimeBlocks(prev => prev.filter(b => b.id !== tempId))
+                }
               }}
               onDeleteBlock={async (id) => {
-                await withSaving(async () => {
+                // Optimistic: remove immediately
+                setTimeBlocks(prev => prev.filter(b => b.id !== id))
+                try {
                   await actions.deleteTimeBlock(id)
-                  await loadData()
-                })
+                } catch {
+                  loadData() // Revert on error
+                }
               }}
               onCompleteTask={async (id) => {
-                await withSaving(async () => {
+                // Optimistic: mark completed immediately
+                setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: true } : t))
+                try {
                   await actions.updateTask(id, { completed: true })
-                  await loadData()
-                })
+                } catch {
+                  setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: false } : t))
+                }
               }}
               onCompleteHabit={async (id) => {
-                await withSaving(async () => {
+                // Optimistic: update last_done and increment streak
+                const today = new Date().toISOString().split('T')[0]
+                setHabits(prev => prev.map(h =>
+                  h.id === id ? { ...h, last_done: today, streak: h.streak + 1 } : h
+                ))
+                try {
                   await actions.completeHabit(id)
-                  await loadData()
-                })
+                } catch {
+                  loadData() // Revert on error
+                }
               }}
             />
 
@@ -401,6 +425,7 @@ export default function Dashboard({ userId }: DashboardProps) {
             <ReflectionsNotes
               reflections={reflections}
               notes={notes}
+              improvements={improvements}
               values={values}
               themeSummary={themeSummary}
               userId={userId}
@@ -413,8 +438,20 @@ export default function Dashboard({ userId }: DashboardProps) {
                 await actions.createNote(note)
                 loadData()
               }}
+              onUpdateNote={async (id, updates) => {
+                await actions.updateNote(id, updates)
+                loadData()
+              }}
               onDeleteNote={async (id) => {
                 await actions.deleteNote(id)
+                loadData()
+              }}
+              onCreateImprovement={async (improvement) => {
+                await actions.createImprovement(improvement)
+                loadData()
+              }}
+              onUpdateImprovement={async (id, updates) => {
+                await actions.updateImprovement(id, updates)
                 loadData()
               }}
               onBatchUpdateValues={async (ratings) => {

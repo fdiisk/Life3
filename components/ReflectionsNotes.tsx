@@ -14,6 +14,7 @@ interface ReflectionsNotesProps {
   onDeleteNote: (id: string) => Promise<void>
   onBatchUpdateValues: (ratings: Record<string, number>) => Promise<void>
   userId: string
+  customValues?: string[]
 }
 
 export default function ReflectionsNotes({
@@ -26,7 +27,10 @@ export default function ReflectionsNotes({
   onDeleteNote,
   onBatchUpdateValues,
   userId,
+  customValues,
 }: ReflectionsNotesProps) {
+  // Use custom values if provided, otherwise fall back to defaults
+  const valuesList = customValues?.length ? customValues : [...CORE_VALUES]
   const [activeTab, setActiveTab] = useState<'reflection' | 'notes' | 'values'>('reflection')
   const [reflection, setReflection] = useState({ wentWell: '', evenBetterIf: '' })
   const [noteInput, setNoteInput] = useState('')
@@ -38,12 +42,12 @@ export default function ReflectionsNotes({
   // Initialize local ratings from server values
   useEffect(() => {
     const initial: Record<string, number> = {}
-    CORE_VALUES.forEach((v) => {
+    valuesList.forEach((v) => {
       const existing = values.find((val) => val.name === v)
       initial[v] = existing?.daily_rating || 5
     })
     setLocalRatings(initial)
-  }, [values])
+  }, [values, valuesList])
 
   // Debounced save - waits 800ms after last change
   const debouncedSave = useCallback((ratings: Record<string, number>) => {
@@ -240,29 +244,41 @@ export default function ReflectionsNotes({
               </span>
             )}
           </div>
-          {CORE_VALUES.map((valueName) => (
-            <div key={valueName} className="flex items-center gap-3">
-              <span className="w-24 font-medium">{valueName}</span>
-              <input
-                type="range"
-                min="1"
-                max="10"
-                value={getValueRating(valueName)}
-                onChange={(e) => handleValueChange(valueName, Number(e.target.value))}
-                className="flex-1 accent-blue-500"
-              />
-              <span className="w-8 text-center font-bold text-blue-600">
-                {getValueRating(valueName)}
-              </span>
-            </div>
-          ))}
+          {valuesList.map((valueName) => {
+            const existingValue = values.find((v) => v.name === valueName)
+            const lastUpdated = existingValue?.timestamp
+            const timeStr = lastUpdated
+              ? new Date(lastUpdated).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })
+              : null
+            return (
+              <div key={valueName} className="space-y-1">
+                <div className="flex items-center gap-3">
+                  <span className="w-24 font-medium">{valueName}</span>
+                  <input
+                    type="range"
+                    min="1"
+                    max="10"
+                    value={getValueRating(valueName)}
+                    onChange={(e) => handleValueChange(valueName, Number(e.target.value))}
+                    className="flex-1 accent-blue-500"
+                  />
+                  <span className="w-8 text-center font-bold text-blue-600">
+                    {getValueRating(valueName)}
+                  </span>
+                </div>
+                {timeStr && (
+                  <p className="text-xs text-gray-400 ml-24">Last updated: {timeStr}</p>
+                )}
+              </div>
+            )
+          })}
           <div className="mt-4 p-3 bg-blue-50 rounded-lg">
             <p className="text-sm text-blue-800">
               Average:{' '}
               <span className="font-bold">
                 {(
-                  CORE_VALUES.reduce((acc, v) => acc + getValueRating(v), 0) /
-                  CORE_VALUES.length
+                  valuesList.reduce((acc, v) => acc + getValueRating(v), 0) /
+                  valuesList.length
                 ).toFixed(1)}
               </span>
             </p>

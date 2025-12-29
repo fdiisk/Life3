@@ -100,9 +100,17 @@ export default function AnalyticsDashboard({ userId }: AnalyticsDashboardProps) 
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-800">Analytics</h1>
-            <p className="text-gray-500">Track your progress and patterns</p>
+          <div className="flex items-center gap-4">
+            <a
+              href="/"
+              className="px-3 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+            >
+              ← Back
+            </a>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800">Analytics</h1>
+              <p className="text-gray-500">Track your progress and patterns</p>
+            </div>
           </div>
 
           {/* Time Range Filter */}

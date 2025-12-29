@@ -11,6 +11,7 @@ interface EveningCloseOutProps {
   timeBlocks: TimeBlock[]
   values: Value[]
   userId: string
+  customValues?: string[]
   onCreateReflection: (reflection: Omit<Reflection, 'id' | 'created_at'>) => Promise<void>
   onBatchUpdateValues: (ratings: Record<string, number>) => Promise<void>
   onComplete: () => void
@@ -23,10 +24,14 @@ export default function EveningCloseOut({
   timeBlocks,
   values,
   userId,
+  customValues,
   onCreateReflection,
   onBatchUpdateValues,
   onComplete,
 }: EveningCloseOutProps) {
+  // Use custom values if provided, otherwise fall back to defaults
+  const valuesList = customValues?.length ? customValues : [...CORE_VALUES]
+
   const [step, setStep] = useState(0)
   const [wins, setWins] = useState(['', '', ''])
   const [challenges, setChallenges] = useState('')
@@ -51,12 +56,12 @@ export default function EveningCloseOut({
   // Initialize value ratings
   useEffect(() => {
     const initial: Record<string, number> = {}
-    CORE_VALUES.forEach((v) => {
+    valuesList.forEach((v) => {
       const existing = values.find((val) => val.name === v)
       initial[v] = existing?.daily_rating || 5
     })
     setValueRatings(initial)
-  }, [values])
+  }, [values, valuesList])
 
   const handleNext = async () => {
     if (step === 3) {
@@ -243,7 +248,7 @@ ${gratitude}
               </h2>
               <p className="text-indigo-200">How aligned did you feel with your values today?</p>
               <div className="space-y-4">
-                {CORE_VALUES.map((value) => (
+                {valuesList.map((value) => (
                   <div key={value} className="space-y-2">
                     <div className="flex justify-between text-white">
                       <span className="font-medium">{value}</span>

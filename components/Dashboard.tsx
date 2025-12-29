@@ -13,8 +13,9 @@ import QuickActions from './QuickActions'
 import SmartMetrics from './SmartMetrics'
 import SuggestionsPanel from './SuggestionsPanel'
 import * as actions from '@/actions'
-import type { Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note } from '@/lib/types'
+import type { Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note, UserSettings } from '@/lib/types'
 import type { AISuggestions } from '@/lib/ai-suggestions'
+import { CORE_VALUES } from '@/lib/constants'
 
 interface DashboardMetrics {
   streaks: Record<string, number>
@@ -47,6 +48,7 @@ export default function Dashboard({ userId }: DashboardProps) {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
   const [suggestions, setSuggestions] = useState<AISuggestions | null>(null)
   const [suggestedWidgets, setSuggestedWidgets] = useState<string[]>([])
+  const [customValues, setCustomValues] = useState<string[]>([...CORE_VALUES])
 
   const today = new Date().toISOString().split('T')[0]
   const [selectedDate, setSelectedDate] = useState(today)
@@ -82,6 +84,7 @@ export default function Dashboard({ userId }: DashboardProps) {
         metricsData,
         patternsData,
         suggestionsData,
+        settingsData,
       ] = await Promise.all([
         actions.getTasks(userId, true).catch(() => []),
         actions.getHabits(userId).catch(() => []),
@@ -96,6 +99,7 @@ export default function Dashboard({ userId }: DashboardProps) {
         actions.getDashboardMetricsAction(userId).catch(() => null),
         actions.detectDataPatternsAction(userId).catch(() => ({ suggestedWidgets: [] })),
         actions.getSuggestionsAction(userId).catch(() => null),
+        actions.getUserSettings(userId).catch(() => null),
       ])
 
       setTasks(tasksData)
@@ -111,6 +115,9 @@ export default function Dashboard({ userId }: DashboardProps) {
       setMetrics(metricsData)
       setSuggestedWidgets(patternsData.suggestedWidgets)
       setSuggestions(suggestionsData)
+      if (settingsData?.core_values && settingsData.core_values.length > 0) {
+        setCustomValues(settingsData.core_values)
+      }
     } catch (err) {
       console.error('Failed to load data:', err)
       setError('Failed to load data. Check if database tables exist in Supabase.')
@@ -397,6 +404,7 @@ export default function Dashboard({ userId }: DashboardProps) {
               values={values}
               themeSummary={themeSummary}
               userId={userId}
+              customValues={customValues}
               onCreateReflection={async (reflection) => {
                 await actions.createReflection(reflection)
                 loadData()
@@ -426,6 +434,7 @@ export default function Dashboard({ userId }: DashboardProps) {
         timeBlocks={timeBlocks}
         values={values}
         userId={userId}
+        customValues={customValues}
         onCompleteHabit={async (id) => {
           await actions.completeHabit(id)
           loadData()

@@ -4,6 +4,7 @@ import * as db from '@/lib/database'
 import {
   parseUserInput,
   parseGoals,
+  parseNutrition,
   summarizeReflections,
   batchParseInputs,
   reparseIfChanged,
@@ -147,8 +148,8 @@ export async function parseGoalsAction(input: string) {
 }
 
 export async function parseNutritionAction(input: string) {
-  const result = await parseUserInput(input)
-  return result.nutrition
+  // Use dedicated nutrition parser for better accuracy
+  return await parseNutrition(input)
 }
 
 export async function parseFitnessAction(input: string) {

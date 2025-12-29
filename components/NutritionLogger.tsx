@@ -34,13 +34,22 @@ export default function NutritionLogger({
   const [mealName, setMealName] = useState('')
   const [mealPortions, setMealPortions] = useState(4)
   const [mealIngredients, setMealIngredients] = useState<Partial<Nutrition>[]>([])
+  const [parseError, setParseError] = useState<string | null>(null)
 
   const handleParse = async () => {
     if (!input.trim()) return
     setParsing(true)
+    setParseError(null)
     try {
       const result = await onParse(input)
-      setParsed(result)
+      if (result && result.length > 0) {
+        setParsed(result)
+      } else {
+        setParseError('No items parsed. Try rephrasing or check your API key.')
+      }
+    } catch (error) {
+      console.error('Parse error:', error)
+      setParseError(error instanceof Error ? error.message : 'Failed to parse. Check console for details.')
     } finally {
       setParsing(false)
     }
@@ -213,6 +222,13 @@ export default function NutritionLogger({
               Quick Add
             </button>
           </div>
+
+          {/* Parse Error */}
+          {parseError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+              <strong>Parse Error:</strong> {parseError}
+            </div>
+          )}
 
           {/* Parsed Items */}
           {parsed.length > 0 && (

@@ -451,3 +451,20 @@ export async function deleteImprovement(id: string) {
 export async function updateNote(id: string, updates: Parameters<typeof db.updateNote>[1]) {
   return await db.updateNote(id, updates)
 }
+
+// Meals actions (batch cooking)
+export async function getMeals(userId: string) {
+  return await db.getMeals(userId)
+}
+
+export async function createMeal(meal: Parameters<typeof db.createMeal>[0]) {
+  return await db.createMeal(meal)
+}
+
+export async function updateMeal(id: string, updates: Parameters<typeof db.updateMeal>[1]) {
+  return await db.updateMeal(id, updates)
+}
+
+export async function deleteMeal(id: string) {
+  return await db.deleteMeal(id)
+}

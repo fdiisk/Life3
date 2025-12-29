@@ -2,7 +2,7 @@
 
 import { createServerClient } from './supabase/server'
 import type {
-  Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note, Weight, UserSettings, Improvement
+  Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note, Weight, UserSettings, Improvement, Meal
 } from './types'
 
 // Tasks
@@ -412,4 +412,36 @@ export async function updateNote(id: string, updates: Partial<Note>) {
   const { data, error } = await supabase.from('notes').update(updates).eq('id', id).select().single()
   if (error) throw error
   return data as Note
+}
+
+// Meals (batch cooking management)
+export async function getMeals(userId: string) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('meals')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data as Meal[]
+}
+
+export async function createMeal(meal: Omit<Meal, 'id' | 'created_at'>) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase.from('meals').insert(meal).select().single()
+  if (error) throw error
+  return data as Meal
+}
+
+export async function updateMeal(id: string, updates: Partial<Meal>) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase.from('meals').update(updates).eq('id', id).select().single()
+  if (error) throw error
+  return data as Meal
+}
+
+export async function deleteMeal(id: string) {
+  const supabase = createServerClient()
+  const { error } = await supabase.from('meals').delete().eq('id', id)
+  if (error) throw error
 }

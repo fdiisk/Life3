@@ -13,7 +13,7 @@ import QuickActions from './QuickActions'
 import SmartMetrics from './SmartMetrics'
 import SuggestionsPanel from './SuggestionsPanel'
 import * as actions from '@/actions'
-import type { Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note, Improvement, UserSettings } from '@/lib/types'
+import type { Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note, Improvement, Meal, UserSettings } from '@/lib/types'
 import type { AISuggestions } from '@/lib/ai-suggestions'
 import { CORE_VALUES } from '@/lib/constants'
 
@@ -40,6 +40,7 @@ export default function Dashboard({ userId }: DashboardProps) {
   const [goals, setGoals] = useState<Goal[]>([])
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([])
   const [nutrition, setNutrition] = useState<Nutrition[]>([])
+  const [meals, setMeals] = useState<Meal[]>([])
   const [fitness, setFitness] = useState<Fitness[]>([])
   const [values, setValues] = useState<Value[]>([])
   const [reflections, setReflections] = useState<Reflection[]>([])
@@ -77,6 +78,7 @@ export default function Dashboard({ userId }: DashboardProps) {
         goalsData,
         blocksData,
         nutritionData,
+        mealsData,
         fitnessData,
         valuesData,
         reflectionsData,
@@ -93,6 +95,7 @@ export default function Dashboard({ userId }: DashboardProps) {
         actions.getGoals(userId).catch(() => []),
         actions.getTimeBlocks(userId, selectedDate).catch(() => []),
         actions.getNutrition(userId, selectedDate).catch(() => []),
+        actions.getMeals(userId).catch(() => []),
         actions.getFitness(userId, selectedDate).catch(() => []),
         actions.getValues(userId, selectedDate).catch(() => []),
         actions.getReflections(userId).catch(() => []),
@@ -110,6 +113,7 @@ export default function Dashboard({ userId }: DashboardProps) {
       setGoals(goalsData)
       setTimeBlocks(blocksData)
       setNutrition(nutritionData)
+      setMeals(mealsData)
       setFitness(fitnessData)
       setValues(valuesData)
       setReflections(reflectionsData)
@@ -396,6 +400,7 @@ export default function Dashboard({ userId }: DashboardProps) {
           <div className="space-y-6">
             <NutritionLogger
               entries={nutrition}
+              meals={meals}
               userId={userId}
               onAdd={async (item) => {
                 await actions.createNutrition(item)
@@ -406,6 +411,14 @@ export default function Dashboard({ userId }: DashboardProps) {
                 loadData()
               }}
               onParse={actions.parseNutritionAction}
+              onCreateMeal={async (meal) => {
+                await actions.createMeal(meal)
+                loadData()
+              }}
+              onDeleteMeal={async (id) => {
+                await actions.deleteMeal(id)
+                loadData()
+              }}
             />
 
             <FitnessLogger

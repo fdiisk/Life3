@@ -110,6 +110,17 @@ CREATE TABLE IF NOT EXISTS improvements (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Meals table (saved meal templates for batch cooking)
+CREATE TABLE IF NOT EXISTS meals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  ingredients JSONB NOT NULL DEFAULT '[]',
+  portions INTEGER NOT NULL DEFAULT 1,
+  total_macros JSONB NOT NULL DEFAULT '{"calories": 0, "protein": 0, "carbs": 0, "fat": 0, "fiber": 0}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Weight tracking table
 CREATE TABLE IF NOT EXISTS weight (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -146,6 +157,7 @@ CREATE INDEX IF NOT EXISTS idx_reflections_user_id ON reflections(user_id);
 CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes(user_id);
 CREATE INDEX IF NOT EXISTS idx_improvements_user_id ON improvements(user_id);
 CREATE INDEX IF NOT EXISTS idx_improvements_archived ON improvements(archived);
+CREATE INDEX IF NOT EXISTS idx_meals_user_id ON meals(user_id);
 CREATE INDEX IF NOT EXISTS idx_weight_user_id ON weight(user_id);
 CREATE INDEX IF NOT EXISTS idx_weight_timestamp ON weight(timestamp);
 CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id);
@@ -162,6 +174,7 @@ ALTER TABLE values ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reflections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE improvements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE meals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE weight ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 
@@ -169,7 +182,7 @@ ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 -- Using DO block to avoid "already exists" errors
 DO $$
 DECLARE
-  tables TEXT[] := ARRAY['habits', 'goals', 'tasks', 'time_blocks', 'nutrition', 'fitness', 'values', 'reflections', 'notes', 'improvements', 'weight', 'user_settings'];
+  tables TEXT[] := ARRAY['habits', 'goals', 'tasks', 'time_blocks', 'nutrition', 'fitness', 'values', 'reflections', 'notes', 'improvements', 'meals', 'weight', 'user_settings'];
   t TEXT;
 BEGIN
   FOREACH t IN ARRAY tables

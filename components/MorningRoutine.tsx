@@ -9,6 +9,7 @@ interface MorningRoutineProps {
   goals: Goal[]
   values: Value[]
   userId: string
+  customValues?: string[]
   onCompleteHabit: (id: string) => Promise<void>
   onBatchUpdateValues: (ratings: Record<string, number>) => Promise<void>
   onComplete: () => void
@@ -19,10 +20,14 @@ export default function MorningRoutine({
   goals,
   values,
   userId,
+  customValues,
   onCompleteHabit,
   onBatchUpdateValues,
   onComplete,
 }: MorningRoutineProps) {
+  // Use custom values if provided, otherwise fall back to defaults
+  const valuesList = customValues?.length ? customValues : [...CORE_VALUES]
+
   const [step, setStep] = useState(0)
   const [gratitude, setGratitude] = useState(['', '', ''])
   const [intentions, setIntentions] = useState('')
@@ -32,12 +37,12 @@ export default function MorningRoutine({
   // Initialize value ratings from existing data
   useEffect(() => {
     const initial: Record<string, number> = {}
-    CORE_VALUES.forEach((v) => {
+    valuesList.forEach((v) => {
       const existing = values.find((val) => val.name === v)
       initial[v] = existing?.daily_rating || 5
     })
     setValueRatings(initial)
-  }, [values])
+  }, [values, valuesList])
 
   const morningHabits = habits.filter((h) =>
     h.name.toLowerCase().includes('morning') ||
@@ -179,7 +184,7 @@ export default function MorningRoutine({
               </h2>
               <p className="text-gray-500">Rate how aligned you feel with your core values right now.</p>
               <div className="space-y-4">
-                {CORE_VALUES.map((value) => (
+                {valuesList.map((value) => (
                   <div key={value} className="space-y-2">
                     <div className="flex justify-between">
                       <span className="font-medium text-gray-700">{value}</span>

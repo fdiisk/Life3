@@ -12,6 +12,7 @@ interface DayFlowManagerProps {
   timeBlocks: TimeBlock[]
   values: Value[]
   userId: string
+  customValues?: string[]
   onCompleteHabit: (id: string) => Promise<void>
   onBatchUpdateValues: (ratings: Record<string, number>) => Promise<void>
   onCreateReflection: (reflection: Omit<Reflection, 'id' | 'created_at'>) => Promise<void>
@@ -26,6 +27,7 @@ export default function DayFlowManager({
   timeBlocks,
   values,
   userId,
+  customValues,
   onCompleteHabit,
   onBatchUpdateValues,
   onCreateReflection,
@@ -72,6 +74,7 @@ export default function DayFlowManager({
         goals={goals}
         values={values}
         userId={userId}
+        customValues={customValues}
         onCompleteHabit={onCompleteHabit}
         onBatchUpdateValues={onBatchUpdateValues}
         onComplete={() => completeFlow('morning')}
@@ -88,6 +91,7 @@ export default function DayFlowManager({
         timeBlocks={timeBlocks}
         values={values}
         userId={userId}
+        customValues={customValues}
         onCreateReflection={onCreateReflection}
         onBatchUpdateValues={onBatchUpdateValues}
         onComplete={() => completeFlow('evening')}

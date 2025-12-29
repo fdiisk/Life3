@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import type { TimeBlock, Task, Habit, LifeArea } from '@/lib/types'
 import { LIFE_AREA_COLORS } from '@/lib/types'
+import HorizontalTimeline from './HorizontalTimeline'
 
 interface DailyPlannerProps {
   timeBlocks: TimeBlock[]
@@ -29,6 +30,7 @@ export default function DailyPlanner({
 }: DailyPlannerProps) {
   const [selectedDate] = useState(new Date().toISOString().split('T')[0])
   const [showModal, setShowModal] = useState(false)
+  const [showFullscreen, setShowFullscreen] = useState(false)
   const [selectedHour, setSelectedHour] = useState<number | null>(null)
   const [newBlock, setNewBlock] = useState<{
     type: LifeArea
@@ -79,7 +81,16 @@ export default function DailyPlanner({
 
   return (
     <div className="bg-white rounded-lg shadow p-4">
-      <h2 className="text-lg font-semibold mb-4">Daily Planner</h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg font-semibold">Daily Planner</h2>
+        <button
+          onClick={() => setShowFullscreen(true)}
+          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition flex items-center gap-1"
+        >
+          <span>Fullscreen Timeline</span>
+          <span className="text-lg">&#x26F6;</span>
+        </button>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Time Grid */}
@@ -269,6 +280,21 @@ export default function DailyPlanner({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Fullscreen Horizontal Timeline */}
+      {showFullscreen && (
+        <HorizontalTimeline
+          timeBlocks={timeBlocks}
+          tasks={tasks}
+          habits={habits}
+          onCreateBlock={onCreateBlock}
+          onDeleteBlock={onDeleteBlock}
+          onCompleteTask={onCompleteTask}
+          onCompleteHabit={onCompleteHabit}
+          userId={userId}
+          onClose={() => setShowFullscreen(false)}
+        />
       )}
     </div>
   )

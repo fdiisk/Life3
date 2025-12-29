@@ -58,7 +58,33 @@ export interface Nutrition {
     fat?: number
     fiber?: number
   }
+  meal_id?: string  // If logged from a saved meal
   timestamp: string
+  created_at?: string
+}
+
+export interface Meal {
+  id: string
+  user_id: string
+  name: string
+  ingredients: {
+    name: string
+    macros: {
+      calories?: number
+      protein?: number
+      carbs?: number
+      fat?: number
+      fiber?: number
+    }
+  }[]
+  portions: number
+  total_macros: {
+    calories: number
+    protein: number
+    carbs: number
+    fat: number
+    fiber: number
+  }
   created_at?: string
 }
 
@@ -96,6 +122,17 @@ export interface Note {
   id: string
   user_id: string
   content: string
+  completed?: boolean
+  timestamp: string
+  created_at?: string
+}
+
+export interface Improvement {
+  id: string
+  user_id: string
+  content: string
+  completed: boolean
+  archived: boolean
   timestamp: string
   created_at?: string
 }

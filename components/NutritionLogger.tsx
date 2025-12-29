@@ -36,6 +36,12 @@ export default function NutritionLogger({
   const [mealIngredients, setMealIngredients] = useState<Partial<Nutrition>[]>([])
   const [parseError, setParseError] = useState<string | null>(null)
 
+  // Loading states for async operations
+  const [savingMeal, setSavingMeal] = useState(false)
+  const [deletingMealId, setDeletingMealId] = useState<string | null>(null)
+  const [loggingMealId, setLoggingMealId] = useState<string | null>(null)
+  const [addingItem, setAddingItem] = useState(false)
+
   const handleParse = async () => {
     if (!input.trim()) return
     setParsing(true)
@@ -56,16 +62,21 @@ export default function NutritionLogger({
   }
 
   const handleAdd = async (item: Partial<Nutrition>) => {
-    if (!item.food_name) return
-    await onAdd({
-      user_id: userId,
-      food_name: item.food_name,
-      macros: item.macros || {},
-      timestamp: new Date().toISOString(),
-    })
-    setParsed(parsed.filter((p) => p !== item))
-    if (parsed.length === 1) {
-      setInput('')
+    if (!item.food_name || addingItem) return
+    setAddingItem(true)
+    try {
+      await onAdd({
+        user_id: userId,
+        food_name: item.food_name,
+        macros: item.macros || {},
+        timestamp: new Date().toISOString(),
+      })
+      setParsed(parsed.filter((p) => p !== item))
+      if (parsed.length === 1) {
+        setInput('')
+      }
+    } finally {
+      setAddingItem(false)
     }
   }
 
@@ -105,31 +116,39 @@ export default function NutritionLogger({
 
   // Save the meal
   const handleSaveMeal = async () => {
-    if (!mealName.trim() || mealIngredients.length === 0) return
+    if (!mealName.trim() || mealIngredients.length === 0 || savingMeal) return
 
-    const totalMacros = calculateMealTotals(mealIngredients)
+    setSavingMeal(true)
+    try {
+      const totalMacros = calculateMealTotals(mealIngredients)
 
-    await onCreateMeal({
-      user_id: userId,
-      name: mealName,
-      ingredients: mealIngredients.map(i => ({
-        name: i.food_name || '',
-        macros: i.macros || {}
-      })),
-      portions: mealPortions,
-      total_macros: totalMacros,
-    })
+      await onCreateMeal({
+        user_id: userId,
+        name: mealName,
+        ingredients: mealIngredients.map(i => ({
+          name: i.food_name || '',
+          macros: i.macros || {}
+        })),
+        portions: mealPortions,
+        total_macros: totalMacros,
+      })
 
-    // Reset meal creation
-    setMealName('')
-    setMealPortions(4)
-    setMealIngredients([])
-    setCreatingMeal(false)
+      // Reset meal creation
+      setMealName('')
+      setMealPortions(4)
+      setMealIngredients([])
+      setCreatingMeal(false)
+    } finally {
+      setSavingMeal(false)
+    }
   }
 
   // Log a portion from a saved meal
   const handleLogPortion = async (meal: Meal) => {
-    const portionMacros = {
+    if (loggingMealId) return // Prevent double-click
+    setLoggingMealId(meal.id)
+    try {
+      const portionMacros = {
       calories: Math.round(meal.total_macros.calories / meal.portions),
       protein: Math.round(meal.total_macros.protein / meal.portions),
       carbs: Math.round(meal.total_macros.carbs / meal.portions),
@@ -137,13 +156,27 @@ export default function NutritionLogger({
       fiber: Math.round(meal.total_macros.fiber / meal.portions),
     }
 
-    await onAdd({
-      user_id: userId,
-      food_name: `${meal.name} (1/${meal.portions} portion)`,
-      macros: portionMacros,
-      meal_id: meal.id,
-      timestamp: new Date().toISOString(),
-    })
+      await onAdd({
+        user_id: userId,
+        food_name: `${meal.name} (1/${meal.portions} portion)`,
+        macros: portionMacros,
+        meal_id: meal.id,
+        timestamp: new Date().toISOString(),
+      })
+    } finally {
+      setLoggingMealId(null)
+    }
+  }
+
+  // Delete a meal with loading state
+  const handleDeleteMeal = async (id: string) => {
+    if (deletingMealId) return
+    setDeletingMealId(id)
+    try {
+      await onDeleteMeal(id)
+    } finally {
+      setDeletingMealId(null)
+    }
   }
 
   const totalMacros = entries.reduce(
@@ -277,12 +310,17 @@ export default function NutritionLogger({
                   <button
                     key={meal.id}
                     onClick={() => handleLogPortion(meal)}
-                    className="px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-sm hover:bg-purple-200 transition"
+                    disabled={loggingMealId !== null}
+                    className={`px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-sm hover:bg-purple-200 transition disabled:opacity-50 ${loggingMealId === meal.id ? 'animate-pulse' : ''}`}
                   >
-                    {meal.name}
-                    <span className="text-xs ml-1 opacity-70">
-                      ({Math.round(meal.total_macros.calories / meal.portions)} cal)
-                    </span>
+                    {loggingMealId === meal.id ? 'Logging...' : (
+                      <>
+                        {meal.name}
+                        <span className="text-xs ml-1 opacity-70">
+                          ({Math.round(meal.total_macros.calories / meal.portions)} cal)
+                        </span>
+                      </>
+                    )}
                   </button>
                 ))}
               </div>
@@ -439,10 +477,10 @@ export default function NutritionLogger({
                   </button>
                   <button
                     onClick={handleSaveMeal}
-                    disabled={!mealName.trim() || mealIngredients.length === 0}
+                    disabled={!mealName.trim() || mealIngredients.length === 0 || savingMeal}
                     className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
                   >
-                    Save Meal
+                    {savingMeal ? 'Saving...' : 'Save Meal'}
                   </button>
                 </div>
               </div>
@@ -464,7 +502,7 @@ export default function NutritionLogger({
             ) : (
               <div className="space-y-2">
                 {meals.map((meal) => (
-                  <div key={meal.id} className="p-3 border rounded-lg">
+                  <div key={meal.id} className={`p-3 border rounded-lg ${loggingMealId === meal.id || deletingMealId === meal.id ? 'opacity-60' : ''}`}>
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <h4 className="font-medium">{meal.name}</h4>
@@ -474,19 +512,26 @@ export default function NutritionLogger({
                         <div className="text-xs text-gray-400 mt-1">
                           Total: {meal.total_macros.calories} cal, {meal.total_macros.protein}g protein
                         </div>
+                        {meal.created_at && (
+                          <div className="text-xs text-gray-400 mt-1">
+                            Created: {new Date(meal.created_at).toLocaleDateString()} {new Date(meal.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        )}
                       </div>
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleLogPortion(meal)}
-                          className="px-3 py-1.5 bg-green-500 text-white rounded text-sm hover:bg-green-600"
+                          disabled={loggingMealId !== null || deletingMealId !== null}
+                          className="px-3 py-1.5 bg-green-500 text-white rounded text-sm hover:bg-green-600 disabled:opacity-50"
                         >
-                          Log Portion
+                          {loggingMealId === meal.id ? 'Logging...' : 'Log Portion'}
                         </button>
                         <button
-                          onClick={() => onDeleteMeal(meal.id)}
-                          className="px-2 py-1.5 text-gray-400 hover:text-red-500"
+                          onClick={() => handleDeleteMeal(meal.id)}
+                          disabled={loggingMealId !== null || deletingMealId !== null}
+                          className="px-2 py-1.5 text-gray-400 hover:text-red-500 disabled:opacity-50"
                         >
-                          ×
+                          {deletingMealId === meal.id ? '...' : '×'}
                         </button>
                       </div>
                     </div>

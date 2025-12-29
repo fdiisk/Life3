@@ -118,6 +118,16 @@ export interface Reflection {
   created_at?: string
 }
 
+export interface Journal {
+  id: string
+  user_id: string
+  date: string  // YYYY-MM-DD format, one entry per day
+  content: string
+  mood?: 'great' | 'good' | 'okay' | 'bad' | 'terrible'
+  updated_at?: string
+  created_at?: string
+}
+
 export interface Note {
   id: string
   user_id: string

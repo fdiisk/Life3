@@ -12,8 +12,9 @@ import DayFlowManager from './DayFlowManager'
 import QuickActions from './QuickActions'
 import SmartMetrics from './SmartMetrics'
 import SuggestionsPanel from './SuggestionsPanel'
+import JournalWriter from './JournalWriter'
 import * as actions from '@/actions'
-import type { Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note, Improvement, Meal, UserSettings } from '@/lib/types'
+import type { Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note, Improvement, Meal, Journal, UserSettings } from '@/lib/types'
 import type { AISuggestions } from '@/lib/ai-suggestions'
 import { CORE_VALUES } from '@/lib/constants'
 
@@ -46,6 +47,8 @@ export default function Dashboard({ userId }: DashboardProps) {
   const [reflections, setReflections] = useState<Reflection[]>([])
   const [notes, setNotes] = useState<Note[]>([])
   const [improvements, setImprovements] = useState<Improvement[]>([])
+  const [journal, setJournal] = useState<Journal | null>(null)
+  const [pastJournals, setPastJournals] = useState<Journal[]>([])
   const [themeSummary, setThemeSummary] = useState<string | null>(null)
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null)
   const [suggestions, setSuggestions] = useState<AISuggestions | null>(null)
@@ -84,6 +87,8 @@ export default function Dashboard({ userId }: DashboardProps) {
         reflectionsData,
         notesData,
         improvementsData,
+        journalData,
+        pastJournalsData,
         summary,
         metricsData,
         patternsData,
@@ -101,6 +106,8 @@ export default function Dashboard({ userId }: DashboardProps) {
         actions.getReflections(userId).catch(() => []),
         actions.getNotes(userId).catch(() => []),
         actions.getImprovements(userId).catch(() => []),
+        actions.getJournal(userId, selectedDate).catch(() => null),
+        actions.getJournals(userId, 30).catch(() => []),
         actions.getThemeSummary(userId).catch(() => null),
         actions.getDashboardMetricsAction(userId).catch(() => null),
         actions.detectDataPatternsAction(userId).catch(() => ({ suggestedWidgets: [] })),
@@ -119,6 +126,8 @@ export default function Dashboard({ userId }: DashboardProps) {
       setReflections(reflectionsData)
       setNotes(notesData)
       setImprovements(improvementsData)
+      setJournal(journalData)
+      setPastJournals(pastJournalsData)
       setThemeSummary(summary)
       setMetrics(metricsData)
       setSuggestedWidgets(patternsData.suggestedWidgets)
@@ -470,6 +479,19 @@ export default function Dashboard({ userId }: DashboardProps) {
               onBatchUpdateValues={async (ratings) => {
                 await actions.batchUpsertValues(userId, ratings)
                 loadData()
+              }}
+            />
+
+            <JournalWriter
+              journal={journal}
+              pastJournals={pastJournals}
+              userId={userId}
+              selectedDate={selectedDate}
+              onSave={async (journalEntry) => {
+                await actions.upsertJournal(journalEntry)
+                // Refresh journal data
+                const updated = await actions.getJournal(userId, selectedDate)
+                setJournal(updated)
               }}
             />
           </div>

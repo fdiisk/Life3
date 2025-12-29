@@ -149,6 +149,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
   user_id TEXT UNIQUE NOT NULL,
   core_values TEXT[] DEFAULT ARRAY['Health', 'Family', 'Career', 'Growth', 'Joy'],
   target_weight_kg DECIMAL,
+  macro_goals JSONB DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

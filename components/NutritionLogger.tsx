@@ -1,11 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import type { Nutrition, Meal } from '@/lib/types'
+import type { Nutrition, Meal, MacroGoals } from '@/lib/types'
 
 interface NutritionLoggerProps {
   entries: Nutrition[]
   meals: Meal[]
+  macroGoals: MacroGoals | null
   onAdd: (nutrition: Omit<Nutrition, 'id' | 'created_at'>) => Promise<void>
   onDelete: (id: string) => Promise<void>
   onParse: (input: string) => Promise<Partial<Nutrition>[]>
@@ -17,6 +18,7 @@ interface NutritionLoggerProps {
 export default function NutritionLogger({
   entries,
   meals,
+  macroGoals,
   onAdd,
   onDelete,
   onParse,
@@ -185,9 +187,23 @@ export default function NutritionLogger({
       protein: acc.protein + (entry.macros?.protein || 0),
       carbs: acc.carbs + (entry.macros?.carbs || 0),
       fat: acc.fat + (entry.macros?.fat || 0),
+      fiber: acc.fiber + (entry.macros?.fiber || 0),
     }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
   )
+
+  // Calculate remaining macros
+  const remaining = macroGoals ? {
+    calories: macroGoals.calories - totalMacros.calories,
+    protein: macroGoals.protein - totalMacros.protein,
+    carbs: macroGoals.carbs - totalMacros.carbs,
+    fat: macroGoals.fat - totalMacros.fat,
+    fiber: macroGoals.fiber - totalMacros.fiber,
+  } : null
+
+  // Calculate percentage for progress bars
+  const getPercent = (current: number, goal: number) => Math.min(100, Math.round((current / goal) * 100))
+  const isOverGoal = (current: number, goal: number) => current > goal
 
   return (
     <div className="bg-white rounded-lg shadow p-4">
@@ -209,25 +225,120 @@ export default function NutritionLogger({
         </div>
       </div>
 
-      {/* Daily Summary */}
-      <div className="grid grid-cols-4 gap-2 mb-4 p-3 bg-green-50 rounded-lg">
-        <div className="text-center">
-          <p className="text-2xl font-bold text-green-600">{totalMacros.calories}</p>
-          <p className="text-xs text-gray-500">Calories</p>
+      {/* Daily Summary with Goals */}
+      {macroGoals ? (
+        <div className="mb-4 p-3 bg-green-50 rounded-lg space-y-2">
+          {/* Calories - main bar */}
+          <div>
+            <div className="flex justify-between text-sm mb-1">
+              <span className="font-medium">Calories</span>
+              <span className={remaining && remaining.calories < 0 ? 'text-red-600 font-bold' : 'text-gray-600'}>
+                {totalMacros.calories} / {macroGoals.calories}
+                {remaining && (
+                  <span className="ml-2 text-xs">
+                    ({remaining.calories >= 0 ? `${remaining.calories} left` : `${Math.abs(remaining.calories)} over`})
+                  </span>
+                )}
+              </span>
+            </div>
+            <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
+              <div
+                className={`h-full transition-all ${isOverGoal(totalMacros.calories, macroGoals.calories) ? 'bg-red-500' : 'bg-green-500'}`}
+                style={{ width: `${getPercent(totalMacros.calories, macroGoals.calories)}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Macros row */}
+          <div className="grid grid-cols-4 gap-2 pt-2">
+            {/* Protein */}
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-gray-500">Protein</span>
+                <span className={remaining && remaining.protein < 0 ? 'text-red-600' : ''}>
+                  {totalMacros.protein}g
+                </span>
+              </div>
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className={`h-full ${isOverGoal(totalMacros.protein, macroGoals.protein) ? 'bg-red-500' : 'bg-blue-500'}`}
+                  style={{ width: `${getPercent(totalMacros.protein, macroGoals.protein)}%` }}
+                />
+              </div>
+              <div className="text-xs text-gray-400 text-right">{macroGoals.protein}g</div>
+            </div>
+
+            {/* Carbs */}
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-gray-500">Carbs</span>
+                <span className={remaining && remaining.carbs < 0 ? 'text-red-600' : ''}>
+                  {totalMacros.carbs}g
+                </span>
+              </div>
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className={`h-full ${isOverGoal(totalMacros.carbs, macroGoals.carbs) ? 'bg-red-500' : 'bg-yellow-500'}`}
+                  style={{ width: `${getPercent(totalMacros.carbs, macroGoals.carbs)}%` }}
+                />
+              </div>
+              <div className="text-xs text-gray-400 text-right">{macroGoals.carbs}g</div>
+            </div>
+
+            {/* Fat */}
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-gray-500">Fat</span>
+                <span className={remaining && remaining.fat < 0 ? 'text-red-600' : ''}>
+                  {totalMacros.fat}g
+                </span>
+              </div>
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className={`h-full ${isOverGoal(totalMacros.fat, macroGoals.fat) ? 'bg-red-500' : 'bg-orange-500'}`}
+                  style={{ width: `${getPercent(totalMacros.fat, macroGoals.fat)}%` }}
+                />
+              </div>
+              <div className="text-xs text-gray-400 text-right">{macroGoals.fat}g</div>
+            </div>
+
+            {/* Fiber */}
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-gray-500">Fiber</span>
+                <span>{totalMacros.fiber}g</span>
+              </div>
+              <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500"
+                  style={{ width: `${getPercent(totalMacros.fiber, macroGoals.fiber)}%` }}
+                />
+              </div>
+              <div className="text-xs text-gray-400 text-right">{macroGoals.fiber}g</div>
+            </div>
+          </div>
         </div>
-        <div className="text-center">
-          <p className="text-2xl font-bold text-blue-600">{totalMacros.protein}g</p>
-          <p className="text-xs text-gray-500">Protein</p>
+      ) : (
+        /* Simple summary when no goals set */
+        <div className="grid grid-cols-4 gap-2 mb-4 p-3 bg-green-50 rounded-lg">
+          <div className="text-center">
+            <p className="text-2xl font-bold text-green-600">{totalMacros.calories}</p>
+            <p className="text-xs text-gray-500">Calories</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-blue-600">{totalMacros.protein}g</p>
+            <p className="text-xs text-gray-500">Protein</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-yellow-600">{totalMacros.carbs}g</p>
+            <p className="text-xs text-gray-500">Carbs</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-red-600">{totalMacros.fat}g</p>
+            <p className="text-xs text-gray-500">Fat</p>
+          </div>
         </div>
-        <div className="text-center">
-          <p className="text-2xl font-bold text-yellow-600">{totalMacros.carbs}g</p>
-          <p className="text-xs text-gray-500">Carbs</p>
-        </div>
-        <div className="text-center">
-          <p className="text-2xl font-bold text-red-600">{totalMacros.fat}g</p>
-          <p className="text-xs text-gray-500">Fat</p>
-        </div>
-      </div>
+      )}
 
       {activeTab === 'log' && (
         <>

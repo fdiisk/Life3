@@ -155,11 +155,20 @@ export interface Weight {
   created_at?: string
 }
 
+export interface MacroGoals {
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+  fiber: number
+}
+
 export interface UserSettings {
   id: string
   user_id: string
   core_values: string[]
   target_weight_kg: number | null
+  macro_goals: MacroGoals | null
   created_at?: string
   updated_at?: string
 }

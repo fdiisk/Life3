@@ -54,6 +54,7 @@ export default function Dashboard({ userId }: DashboardProps) {
   const [suggestions, setSuggestions] = useState<AISuggestions | null>(null)
   const [suggestedWidgets, setSuggestedWidgets] = useState<string[]>([])
   const [customValues, setCustomValues] = useState<string[]>([...CORE_VALUES])
+  const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
 
   const today = new Date().toISOString().split('T')[0]
   const [selectedDate, setSelectedDate] = useState(today)
@@ -132,6 +133,7 @@ export default function Dashboard({ userId }: DashboardProps) {
       setMetrics(metricsData)
       setSuggestedWidgets(patternsData.suggestedWidgets)
       setSuggestions(suggestionsData)
+      setUserSettings(settingsData)
       if (settingsData?.core_values && settingsData.core_values.length > 0) {
         setCustomValues(settingsData.core_values)
       }
@@ -410,6 +412,7 @@ export default function Dashboard({ userId }: DashboardProps) {
             <NutritionLogger
               entries={nutrition}
               meals={meals}
+              macroGoals={userSettings?.macro_goals || null}
               userId={userId}
               onAdd={async (item) => {
                 await actions.createNutrition(item)

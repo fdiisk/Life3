@@ -3,9 +3,17 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import * as actions from '@/actions'
-import type { Goal, Habit, Weight } from '@/lib/types'
+import type { Goal, Habit, Weight, MacroGoals } from '@/lib/types'
 import { CORE_VALUES } from '@/lib/constants'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+
+const DEFAULT_MACRO_GOALS: MacroGoals = {
+  calories: 2000,
+  protein: 150,
+  carbs: 200,
+  fat: 65,
+  fiber: 30,
+}
 
 interface SettingsPageProps {
   userId: string
@@ -13,11 +21,14 @@ interface SettingsPageProps {
 
 export default function SettingsPage({ userId }: SettingsPageProps) {
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'values' | 'goals' | 'habits' | 'weight'>('values')
+  const [activeTab, setActiveTab] = useState<'values' | 'goals' | 'habits' | 'weight' | 'nutrition'>('values')
 
   // Values state
   const [customValues, setCustomValues] = useState<string[]>([...CORE_VALUES])
   const [newValue, setNewValue] = useState('')
+
+  // Macro goals state
+  const [macroGoals, setMacroGoals] = useState<MacroGoals | null>(null)
 
   // Goals state
   const [goals, setGoals] = useState<Goal[]>([])
@@ -57,6 +68,9 @@ export default function SettingsPage({ userId }: SettingsPageProps) {
           setCustomValues(settingsData.core_values)
         }
         setTargetWeight(settingsData.target_weight_kg)
+        if (settingsData.macro_goals) {
+          setMacroGoals(settingsData.macro_goals)
+        }
       }
     } catch (error) {
       console.error('Failed to load settings:', error)
@@ -142,6 +156,23 @@ export default function SettingsPage({ userId }: SettingsPageProps) {
     }
   }
 
+  const handleSaveMacroGoals = async () => {
+    setSaving(true)
+    try {
+      await actions.updateUserSettings(userId, { macro_goals: macroGoals })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleUpdateMacroGoal = (key: keyof MacroGoals, value: number) => {
+    if (!macroGoals) {
+      setMacroGoals({ ...DEFAULT_MACRO_GOALS, [key]: value })
+    } else {
+      setMacroGoals({ ...macroGoals, [key]: value })
+    }
+  }
+
   const handleDeleteWeight = async (id: string) => {
     await actions.deleteWeightEntry(id)
     loadData()
@@ -179,12 +210,12 @@ export default function SettingsPage({ userId }: SettingsPageProps) {
         </header>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-gray-300">
-          {(['values', 'goals', 'habits', 'weight'] as const).map(tab => (
+        <div className="flex gap-2 mb-6 border-b border-gray-300 overflow-x-auto">
+          {(['values', 'goals', 'habits', 'nutrition', 'weight'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 font-medium capitalize transition ${
+              className={`px-4 py-2 font-medium capitalize transition whitespace-nowrap ${
                 activeTab === tab
                   ? 'border-b-2 border-blue-500 text-blue-600'
                   : 'text-gray-500 hover:text-gray-700'
@@ -395,6 +426,184 @@ export default function SettingsPage({ userId }: SettingsPageProps) {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Nutrition Tab */}
+        {activeTab === 'nutrition' && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Daily Macro Goals</h2>
+            <p className="text-gray-500 mb-6">
+              Set your daily macro targets. These will be displayed in the Nutrition Logger to track your progress.
+            </p>
+
+            {!macroGoals ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500 mb-4">No macro goals set yet</p>
+                <button
+                  onClick={() => setMacroGoals(DEFAULT_MACRO_GOALS)}
+                  className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+                >
+                  Set Up Macro Goals
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Calories */}
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <label className="font-medium">Daily Calories</label>
+                    <span className="text-lg font-bold text-green-600">{macroGoals.calories} kcal</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1000"
+                    max="5000"
+                    step="50"
+                    value={macroGoals.calories}
+                    onChange={(e) => handleUpdateMacroGoal('calories', Number(e.target.value))}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400">
+                    <span>1000</span>
+                    <span>3000</span>
+                    <span>5000</span>
+                  </div>
+                </div>
+
+                {/* Protein */}
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <label className="font-medium">Protein</label>
+                    <span className="text-lg font-bold text-blue-600">{macroGoals.protein}g</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="50"
+                    max="300"
+                    step="5"
+                    value={macroGoals.protein}
+                    onChange={(e) => handleUpdateMacroGoal('protein', Number(e.target.value))}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400">
+                    <span>50g</span>
+                    <span>175g</span>
+                    <span>300g</span>
+                  </div>
+                </div>
+
+                {/* Carbs */}
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <label className="font-medium">Carbohydrates</label>
+                    <span className="text-lg font-bold text-yellow-600">{macroGoals.carbs}g</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="20"
+                    max="400"
+                    step="5"
+                    value={macroGoals.carbs}
+                    onChange={(e) => handleUpdateMacroGoal('carbs', Number(e.target.value))}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400">
+                    <span>20g (keto)</span>
+                    <span>200g</span>
+                    <span>400g</span>
+                  </div>
+                </div>
+
+                {/* Fat */}
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <label className="font-medium">Fat</label>
+                    <span className="text-lg font-bold text-orange-600">{macroGoals.fat}g</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="20"
+                    max="200"
+                    step="5"
+                    value={macroGoals.fat}
+                    onChange={(e) => handleUpdateMacroGoal('fat', Number(e.target.value))}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400">
+                    <span>20g</span>
+                    <span>100g</span>
+                    <span>200g</span>
+                  </div>
+                </div>
+
+                {/* Fiber */}
+                <div>
+                  <div className="flex justify-between mb-2">
+                    <label className="font-medium">Fiber</label>
+                    <span className="text-lg font-bold text-emerald-600">{macroGoals.fiber}g</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="10"
+                    max="60"
+                    step="1"
+                    value={macroGoals.fiber}
+                    onChange={(e) => handleUpdateMacroGoal('fiber', Number(e.target.value))}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-gray-400">
+                    <span>10g</span>
+                    <span>35g</span>
+                    <span>60g</span>
+                  </div>
+                </div>
+
+                {/* Summary Box */}
+                <div className="p-4 bg-gray-50 rounded-lg">
+                  <h3 className="font-medium mb-3">Daily Targets Summary</h3>
+                  <div className="grid grid-cols-5 gap-2 text-center text-sm">
+                    <div className="p-2 bg-green-100 rounded">
+                      <div className="font-bold text-green-700">{macroGoals.calories}</div>
+                      <div className="text-xs text-gray-500">cal</div>
+                    </div>
+                    <div className="p-2 bg-blue-100 rounded">
+                      <div className="font-bold text-blue-700">{macroGoals.protein}g</div>
+                      <div className="text-xs text-gray-500">protein</div>
+                    </div>
+                    <div className="p-2 bg-yellow-100 rounded">
+                      <div className="font-bold text-yellow-700">{macroGoals.carbs}g</div>
+                      <div className="text-xs text-gray-500">carbs</div>
+                    </div>
+                    <div className="p-2 bg-orange-100 rounded">
+                      <div className="font-bold text-orange-700">{macroGoals.fat}g</div>
+                      <div className="text-xs text-gray-500">fat</div>
+                    </div>
+                    <div className="p-2 bg-emerald-100 rounded">
+                      <div className="font-bold text-emerald-700">{macroGoals.fiber}g</div>
+                      <div className="text-xs text-gray-500">fiber</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleSaveMacroGoals}
+                    disabled={saving}
+                    className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                  >
+                    {saving ? 'Saving...' : 'Save Goals'}
+                  </button>
+                  <button
+                    onClick={() => setMacroGoals(null)}
+                    className="px-4 py-2 text-red-500 hover:text-red-700"
+                  >
+                    Clear Goals
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

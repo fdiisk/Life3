@@ -2,7 +2,7 @@
 
 import { createServerClient } from './supabase/server'
 import type {
-  Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note, Weight, UserSettings, Improvement, Meal
+  Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note, Weight, UserSettings, Improvement, Meal, Journal
 } from './types'
 
 // Tasks
@@ -443,5 +443,50 @@ export async function updateMeal(id: string, updates: Partial<Meal>) {
 export async function deleteMeal(id: string) {
   const supabase = createServerClient()
   const { error } = await supabase.from('meals').delete().eq('id', id)
+  if (error) throw error
+}
+
+// Journals (daily journaling)
+export async function getJournal(userId: string, date: string) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('journals')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('date', date)
+    .single()
+  if (error && error.code !== 'PGRST116') throw error  // PGRST116 = no rows
+  return data as Journal | null
+}
+
+export async function getJournals(userId: string, limit = 30) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('journals')
+    .select('*')
+    .eq('user_id', userId)
+    .order('date', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return data as Journal[]
+}
+
+export async function upsertJournal(journal: Omit<Journal, 'id' | 'created_at' | 'updated_at'>) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('journals')
+    .upsert(
+      { ...journal, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,date' }
+    )
+    .select()
+    .single()
+  if (error) throw error
+  return data as Journal
+}
+
+export async function deleteJournal(id: string) {
+  const supabase = createServerClient()
+  const { error } = await supabase.from('journals').delete().eq('id', id)
   if (error) throw error
 }

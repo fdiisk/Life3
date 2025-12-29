@@ -469,3 +469,20 @@ export async function updateMeal(id: string, updates: Parameters<typeof db.updat
 export async function deleteMeal(id: string) {
   return await db.deleteMeal(id)
 }
+
+// Journals actions
+export async function getJournal(userId: string, date: string) {
+  return await db.getJournal(userId, date)
+}
+
+export async function getJournals(userId: string, limit?: number) {
+  return await db.getJournals(userId, limit)
+}
+
+export async function upsertJournal(journal: Parameters<typeof db.upsertJournal>[0]) {
+  return await db.upsertJournal(journal)
+}
+
+export async function deleteJournal(id: string) {
+  return await db.deleteJournal(id)
+}

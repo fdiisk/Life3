@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS nutrition (
   user_id TEXT NOT NULL,
   food_name TEXT NOT NULL,
   macros JSONB DEFAULT '{}',
+  meal_id UUID,  -- Links to meals table (FK added later after meals exists)
   timestamp TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -97,6 +98,18 @@ CREATE TABLE IF NOT EXISTS notes (
   content TEXT NOT NULL,
   timestamp TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Journals table (daily journaling, one entry per day)
+CREATE TABLE IF NOT EXISTS journals (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  date DATE NOT NULL,
+  content TEXT NOT NULL DEFAULT '',
+  mood TEXT CHECK (mood IN ('great', 'good', 'okay', 'bad', 'terrible')),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, date)
 );
 
 -- Improvements table (app feedback with tickboxes and archive)
@@ -149,12 +162,15 @@ CREATE INDEX IF NOT EXISTS idx_tasks_goal_id ON tasks(goal_id);
 CREATE INDEX IF NOT EXISTS idx_time_blocks_user_id ON time_blocks(user_id);
 CREATE INDEX IF NOT EXISTS idx_time_blocks_start ON time_blocks(start_time);
 CREATE INDEX IF NOT EXISTS idx_nutrition_user_id ON nutrition(user_id);
+CREATE INDEX IF NOT EXISTS idx_nutrition_meal_id ON nutrition(meal_id);
 CREATE INDEX IF NOT EXISTS idx_nutrition_timestamp ON nutrition(timestamp);
 CREATE INDEX IF NOT EXISTS idx_fitness_user_id ON fitness(user_id);
 CREATE INDEX IF NOT EXISTS idx_fitness_timestamp ON fitness(timestamp);
 CREATE INDEX IF NOT EXISTS idx_values_user_id ON values(user_id);
 CREATE INDEX IF NOT EXISTS idx_reflections_user_id ON reflections(user_id);
 CREATE INDEX IF NOT EXISTS idx_notes_user_id ON notes(user_id);
+CREATE INDEX IF NOT EXISTS idx_journals_user_id ON journals(user_id);
+CREATE INDEX IF NOT EXISTS idx_journals_date ON journals(date);
 CREATE INDEX IF NOT EXISTS idx_improvements_user_id ON improvements(user_id);
 CREATE INDEX IF NOT EXISTS idx_improvements_archived ON improvements(archived);
 CREATE INDEX IF NOT EXISTS idx_meals_user_id ON meals(user_id);
@@ -173,6 +189,7 @@ ALTER TABLE fitness ENABLE ROW LEVEL SECURITY;
 ALTER TABLE values ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reflections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE journals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE improvements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE meals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE weight ENABLE ROW LEVEL SECURITY;
@@ -182,7 +199,7 @@ ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 -- Using DO block to avoid "already exists" errors
 DO $$
 DECLARE
-  tables TEXT[] := ARRAY['habits', 'goals', 'tasks', 'time_blocks', 'nutrition', 'fitness', 'values', 'reflections', 'notes', 'improvements', 'meals', 'weight', 'user_settings'];
+  tables TEXT[] := ARRAY['habits', 'goals', 'tasks', 'time_blocks', 'nutrition', 'fitness', 'values', 'reflections', 'notes', 'journals', 'improvements', 'meals', 'weight', 'user_settings'];
   t TEXT;
 BEGIN
   FOREACH t IN ARRAY tables

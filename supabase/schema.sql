@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS nutrition (
   user_id TEXT NOT NULL,
   food_name TEXT NOT NULL,
   macros JSONB DEFAULT '{}',
+  meal_id UUID,  -- Links to meals table (FK added later after meals exists)
   timestamp TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -149,6 +150,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_goal_id ON tasks(goal_id);
 CREATE INDEX IF NOT EXISTS idx_time_blocks_user_id ON time_blocks(user_id);
 CREATE INDEX IF NOT EXISTS idx_time_blocks_start ON time_blocks(start_time);
 CREATE INDEX IF NOT EXISTS idx_nutrition_user_id ON nutrition(user_id);
+CREATE INDEX IF NOT EXISTS idx_nutrition_meal_id ON nutrition(meal_id);
 CREATE INDEX IF NOT EXISTS idx_nutrition_timestamp ON nutrition(timestamp);
 CREATE INDEX IF NOT EXISTS idx_fitness_user_id ON fitness(user_id);
 CREATE INDEX IF NOT EXISTS idx_fitness_timestamp ON fitness(timestamp);

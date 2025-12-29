@@ -24,31 +24,46 @@ async function callAI(systemPrompt: string, userMessage: string, maxTokens = 512
     throw new Error('OPENROUTER_API_KEY not configured')
   }
 
-  const response = await fetch(OPENROUTER_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-      'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
-    },
-    body: JSON.stringify({
-      model: AI_MODEL,
-      max_tokens: maxTokens,
-      temperature: 0.1, // Low temperature for consistent parsing
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMessage },
-      ],
-    }),
-  })
+  // Add timeout using AbortController
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
-  if (!response.ok) {
-    const error = await response.text()
-    throw new Error(`AI API error: ${response.statusText} - ${error}`)
+  try {
+    const response = await fetch(OPENROUTER_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+      },
+      body: JSON.stringify({
+        model: AI_MODEL,
+        max_tokens: maxTokens,
+        temperature: 0.1, // Low temperature for consistent parsing
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userMessage },
+        ],
+      }),
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      const error = await response.text()
+      throw new Error(`AI API error: ${response.statusText} - ${error}`)
+    }
+
+    const data = await response.json()
+    return data.choices?.[0]?.message?.content || ''
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('AI request timed out after 30 seconds')
+    }
+    throw error
   }
-
-  const data = await response.json()
-  return data.choices?.[0]?.message?.content || ''
 }
 
 // Compact system prompt optimized for token efficiency
@@ -185,6 +200,75 @@ export async function summarizeReflections(reflections: string[]): Promise<strin
 
   const systemPrompt = 'Summarize themes from reflections. Be concise. Plain text only.'
   return await callAI(systemPrompt, reflections.join('\n'), 256)
+}
+
+// Dedicated nutrition parsing with better macro estimates
+const NUTRITION_PARSE_PROMPT = `Parse food items into nutrition data with accurate macro estimates.
+You are a nutrition expert. For each food item:
+- Identify branded items (Laughing Cow, American cheese, etc.) and use known nutritional values
+- For raw/uncooked items (rice, pasta, meat), calculate macros for the COOKED version (weights given are pre-cooking)
+- Meat loses ~25% weight when cooked, grains absorb water and ~triple in weight
+- Estimate macros per typical serving/amount mentioned
+
+IMPORTANT macro reference per 100g cooked:
+- Beef mince 10% fat: 176 cal, 26g protein, 0g carbs, 8g fat
+- Cooked white rice: 130 cal, 2.7g protein, 28g carbs, 0.3g fat
+- Bell pepper: 31 cal, 1g protein, 6g carbs, 0.3g fat
+- Red onion: 40 cal, 1.1g protein, 9g carbs, 0.1g fat
+- Egg (large ~50g): 78 cal, 6g protein, 0.6g carbs, 5g fat
+- American cheese slice (~20g): 70 cal, 4g protein, 1g carbs, 6g fat
+- Laughing Cow wedge (~21g): 35 cal, 2g protein, 1g carbs, 2.5g fat
+- Olive oil (1 tbsp ~14g): 120 cal, 0g protein, 0g carbs, 14g fat
+
+Output ONLY valid JSON array:
+[{"food_name":"descriptive name","macros":{"calories":number,"protein":number,"carbs":number,"fat":number,"fiber":number}}]
+
+Parse each ingredient separately. Be specific with amounts. Return JSON only, no explanation.`
+
+export async function parseNutrition(input: string): Promise<Array<{food_name: string, macros: {calories?: number, protein?: number, carbs?: number, fat?: number, fiber?: number}}>> {
+  try {
+    const text = await callAI(NUTRITION_PARSE_PROMPT, input, 1024)
+
+    // Try to extract JSON array
+    const jsonMatch = text.match(/\[[\s\S]*\]/)
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0])
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.map(item => ({
+          food_name: item.food_name || 'Unknown food',
+          macros: {
+            calories: Math.round(item.macros?.calories || 0),
+            protein: Math.round(item.macros?.protein || 0),
+            carbs: Math.round(item.macros?.carbs || 0),
+            fat: Math.round(item.macros?.fat || 0),
+            fiber: Math.round(item.macros?.fiber || 0),
+          }
+        }))
+      }
+    }
+
+    // Fallback: try to parse as object with nutrition array
+    const objMatch = text.match(/\{[\s\S]*\}/)
+    if (objMatch) {
+      const obj = JSON.parse(objMatch[0])
+      if (obj.nutrition && Array.isArray(obj.nutrition)) {
+        return obj.nutrition
+      }
+    }
+
+    // Last resort: return basic parsed items without macros
+    return input.split(',').map(item => ({
+      food_name: item.trim(),
+      macros: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
+    }))
+  } catch (error) {
+    console.error('Nutrition parsing error:', error)
+    // Fallback: split by comma and return without macros
+    return input.split(',').map(item => ({
+      food_name: item.trim(),
+      macros: { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0 }
+    }))
+  }
 }
 
 // Derive streak data from habit completion history

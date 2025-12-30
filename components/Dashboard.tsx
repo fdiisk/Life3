@@ -34,6 +34,7 @@ interface DashboardProps {
 
 export default function Dashboard({ userId }: DashboardProps) {
   const [loading, setLoading] = useState(true)
+  const [dateLoading, setDateLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [tasks, setTasks] = useState<Task[]>([])
@@ -149,11 +150,11 @@ export default function Dashboard({ userId }: DashboardProps) {
     loadData()
   }, [loadData])
 
-  // Reload when date changes
+  // Reload when date changes (with overlay loading, not full page)
   useEffect(() => {
     if (!loading) {
-      setLoading(true)
-      loadData()
+      setDateLoading(true)
+      loadData().finally(() => setDateLoading(false))
     }
   }, [selectedDate])
 
@@ -166,7 +167,17 @@ export default function Dashboard({ userId }: DashboardProps) {
   }
 
   return (
-    <main className="min-h-screen bg-gray-100 p-4 md:p-6">
+    <main className="min-h-screen bg-gray-100 p-4 md:p-6 relative">
+      {/* Date loading overlay */}
+      {dateLoading && (
+        <div className="absolute inset-0 bg-gray-100/80 flex items-center justify-center z-40">
+          <div className="flex items-center gap-3 bg-white px-6 py-3 rounded-lg shadow-lg">
+            <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-gray-600">Loading...</span>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto">
         <header className="mb-6 flex flex-col sm:flex-row justify-between items-start gap-4">
           <div className="flex items-center gap-4">
@@ -402,6 +413,7 @@ export default function Dashboard({ userId }: DashboardProps) {
               entries={nutrition}
               meals={meals}
               macroGoals={userSettings?.macro_goals || null}
+              selectedDate={selectedDate}
               userId={userId}
               onAdd={async (item) => {
                 await actions.createNutrition(item)
@@ -424,6 +436,7 @@ export default function Dashboard({ userId }: DashboardProps) {
 
             <FitnessLogger
               entries={fitness}
+              selectedDate={selectedDate}
               userId={userId}
               onAdd={async (item) => {
                 await actions.createFitness(item)

@@ -7,6 +7,7 @@ interface NutritionLoggerProps {
   entries: Nutrition[]
   meals: Meal[]
   macroGoals: MacroGoals | null
+  selectedDate: string
   onAdd: (nutrition: Omit<Nutrition, 'id' | 'created_at'>) => Promise<void>
   onDelete: (id: string) => Promise<void>
   onParse: (input: string) => Promise<Partial<Nutrition>[]>
@@ -19,6 +20,7 @@ export default function NutritionLogger({
   entries,
   meals,
   macroGoals,
+  selectedDate,
   onAdd,
   onDelete,
   onParse,
@@ -67,11 +69,13 @@ export default function NutritionLogger({
     if (!item.food_name || addingItem) return
     setAddingItem(true)
     try {
+      // Use selected date with current time
+      const timestamp = new Date(selectedDate + 'T' + new Date().toTimeString().slice(0, 8)).toISOString()
       await onAdd({
         user_id: userId,
         food_name: item.food_name,
         macros: item.macros || {},
-        timestamp: new Date().toISOString(),
+        timestamp,
       })
       setParsed(parsed.filter((p) => p !== item))
       if (parsed.length === 1) {
@@ -84,11 +88,12 @@ export default function NutritionLogger({
 
   const handleAddManual = async () => {
     if (!input.trim()) return
+    const timestamp = new Date(selectedDate + 'T' + new Date().toTimeString().slice(0, 8)).toISOString()
     await onAdd({
       user_id: userId,
       food_name: input,
       macros: {},
-      timestamp: new Date().toISOString(),
+      timestamp,
     })
     setInput('')
   }
@@ -158,12 +163,13 @@ export default function NutritionLogger({
       fiber: Math.round(meal.total_macros.fiber / meal.portions),
     }
 
+      const timestamp = new Date(selectedDate + 'T' + new Date().toTimeString().slice(0, 8)).toISOString()
       await onAdd({
         user_id: userId,
         food_name: `${meal.name} (1/${meal.portions} portion)`,
         macros: portionMacros,
         meal_id: meal.id,
-        timestamp: new Date().toISOString(),
+        timestamp,
       })
     } finally {
       setLoggingMealId(null)

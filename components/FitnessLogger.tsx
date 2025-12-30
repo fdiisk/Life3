@@ -5,6 +5,7 @@ import type { Fitness } from '@/lib/types'
 
 interface FitnessLoggerProps {
   entries: Fitness[]
+  selectedDate: string
   onAdd: (fitness: Omit<Fitness, 'id' | 'created_at'>) => Promise<void>
   onDelete: (id: string) => Promise<void>
   onParse: (input: string) => Promise<Partial<Fitness>[]>
@@ -13,6 +14,7 @@ interface FitnessLoggerProps {
 
 export default function FitnessLogger({
   entries,
+  selectedDate,
   onAdd,
   onDelete,
   onParse,
@@ -43,6 +45,7 @@ export default function FitnessLogger({
 
   const handleAdd = async (item: Partial<Fitness>) => {
     if (!item.exercise_name) return
+    const timestamp = new Date(selectedDate + 'T' + new Date().toTimeString().slice(0, 8)).toISOString()
     await onAdd({
       user_id: userId,
       exercise_name: item.exercise_name,
@@ -50,7 +53,7 @@ export default function FitnessLogger({
       reps: item.reps || null,
       weight: item.weight || null,
       cardio_minutes: item.cardio_minutes || null,
-      timestamp: new Date().toISOString(),
+      timestamp,
     })
     setParsed(parsed.filter((p) => p !== item))
     if (parsed.length === 1) {
@@ -60,6 +63,7 @@ export default function FitnessLogger({
 
   const handleManualAdd = async () => {
     if (!manualEntry.exercise_name.trim()) return
+    const timestamp = new Date(selectedDate + 'T' + new Date().toTimeString().slice(0, 8)).toISOString()
     await onAdd({
       user_id: userId,
       exercise_name: manualEntry.exercise_name,
@@ -67,7 +71,7 @@ export default function FitnessLogger({
       reps: manualEntry.reps ? Number(manualEntry.reps) : null,
       weight: manualEntry.weight ? Number(manualEntry.weight) : null,
       cardio_minutes: manualEntry.cardio_minutes ? Number(manualEntry.cardio_minutes) : null,
-      timestamp: new Date().toISOString(),
+      timestamp,
     })
     setManualEntry({ exercise_name: '', sets: '', reps: '', weight: '', cardio_minutes: '' })
     setManualMode(false)

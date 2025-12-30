@@ -490,3 +490,44 @@ export async function deleteJournal(id: string) {
   const { error } = await supabase.from('journals').delete().eq('id', id)
   if (error) throw error
 }
+
+// User Authentication
+export interface User {
+  id: string
+  username: string
+  password_hash: string
+  created_at?: string
+}
+
+export async function getUserByUsername(username: string): Promise<User | null> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('username', username)
+    .single()
+  if (error && error.code !== 'PGRST116') throw error
+  return data as User | null
+}
+
+export async function createUser(username: string, passwordHash: string): Promise<User> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('users')
+    .insert({ username, password_hash: passwordHash })
+    .select()
+    .single()
+  if (error) throw error
+  return data as User
+}
+
+export async function getUserById(id: string): Promise<User | null> {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (error && error.code !== 'PGRST116') throw error
+  return data as User | null
+}

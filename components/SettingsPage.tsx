@@ -21,7 +21,7 @@ interface SettingsPageProps {
 
 export default function SettingsPage({ userId }: SettingsPageProps) {
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'values' | 'goals' | 'habits' | 'weight' | 'nutrition'>('values')
+  const [activeTab, setActiveTab] = useState<'values' | 'goals' | 'habits' | 'weight' | 'nutrition' | 'security'>('values')
 
   // Values state
   const [customValues, setCustomValues] = useState<string[]>([...CORE_VALUES])
@@ -29,6 +29,13 @@ export default function SettingsPage({ userId }: SettingsPageProps) {
 
   // Macro goals state
   const [macroGoals, setMacroGoals] = useState<MacroGoals | null>(null)
+
+  // Security state
+  const [hasJournalPin, setHasJournalPin] = useState(false)
+  const [newPin, setNewPin] = useState('')
+  const [confirmPin, setConfirmPin] = useState('')
+  const [pinError, setPinError] = useState<string | null>(null)
+  const [pinSuccess, setPinSuccess] = useState<string | null>(null)
 
   // Goals state
   const [goals, setGoals] = useState<Goal[]>([])
@@ -54,15 +61,17 @@ export default function SettingsPage({ userId }: SettingsPageProps) {
 
   const loadData = async () => {
     try {
-      const [goalsData, habitsData, weightsData, settingsData] = await Promise.all([
+      const [goalsData, habitsData, weightsData, settingsData, hasPinData] = await Promise.all([
         actions.getGoals(userId),
         actions.getHabits(userId),
         actions.getWeightEntries(userId, 30),
         actions.getUserSettings(userId),
+        actions.hasJournalPin(userId),
       ])
       setGoals(goalsData)
       setHabits(habitsData)
       setWeights(weightsData)
+      setHasJournalPin(hasPinData)
       if (settingsData) {
         if (settingsData.core_values?.length > 0) {
           setCustomValues(settingsData.core_values)
@@ -173,6 +182,50 @@ export default function SettingsPage({ userId }: SettingsPageProps) {
     }
   }
 
+  const handleSetJournalPin = async () => {
+    setPinError(null)
+    setPinSuccess(null)
+
+    if (newPin.length !== 6 || !/^\d+$/.test(newPin)) {
+      setPinError('PIN must be exactly 6 digits')
+      return
+    }
+
+    if (newPin !== confirmPin) {
+      setPinError('PINs do not match')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const result = await actions.setJournalPin(userId, newPin)
+      if (result.success) {
+        setHasJournalPin(true)
+        setNewPin('')
+        setConfirmPin('')
+        setPinSuccess('Journal PIN set successfully!')
+        // Clear success message after 3 seconds
+        setTimeout(() => setPinSuccess(null), 3000)
+      } else {
+        setPinError(result.error || 'Failed to set PIN')
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleRemoveJournalPin = async () => {
+    setSaving(true)
+    try {
+      await actions.updateUserSettings(userId, { journal_pin_hash: null })
+      setHasJournalPin(false)
+      setPinSuccess('Journal PIN removed')
+      setTimeout(() => setPinSuccess(null), 3000)
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const handleDeleteWeight = async (id: string) => {
     await actions.deleteWeightEntry(id)
     loadData()
@@ -211,7 +264,7 @@ export default function SettingsPage({ userId }: SettingsPageProps) {
 
         {/* Tabs */}
         <div className="flex gap-2 mb-6 border-b border-gray-300 overflow-x-auto">
-          {(['values', 'goals', 'habits', 'nutrition', 'weight'] as const).map(tab => (
+          {(['values', 'goals', 'habits', 'nutrition', 'weight', 'security'] as const).map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -716,6 +769,101 @@ export default function SettingsPage({ userId }: SettingsPageProps) {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Security Tab */}
+        {activeTab === 'security' && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Security Settings</h2>
+
+            {/* Journal PIN */}
+            <div className="mb-8">
+              <h3 className="text-lg font-medium mb-2">Journal PIN Protection</h3>
+              <p className="text-gray-500 text-sm mb-4">
+                Protect your journal with a 6-digit PIN. You&apos;ll need to enter it once per session to access your journal entries.
+              </p>
+
+              {hasJournalPin ? (
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">🔒</span>
+                      <div>
+                        <p className="font-medium text-green-800">Journal PIN is active</p>
+                        <p className="text-sm text-green-600">Your journal is protected</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleRemoveJournalPin}
+                      disabled={saving}
+                      className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 disabled:opacity-50"
+                    >
+                      Remove PIN
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      New PIN (6 digits)
+                    </label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      value={newPin}
+                      onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Enter 6-digit PIN"
+                      className="w-48 border rounded-lg px-4 py-2 text-center tracking-widest"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Confirm PIN
+                    </label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={6}
+                      value={confirmPin}
+                      onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
+                      placeholder="Confirm PIN"
+                      className="w-48 border rounded-lg px-4 py-2 text-center tracking-widest"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSetJournalPin}
+                    disabled={saving || newPin.length !== 6 || confirmPin.length !== 6}
+                    className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                  >
+                    {saving ? 'Setting PIN...' : 'Set Journal PIN'}
+                  </button>
+                </div>
+              )}
+
+              {pinError && (
+                <div className="mt-3 p-3 bg-red-50 text-red-700 rounded-lg">
+                  {pinError}
+                </div>
+              )}
+              {pinSuccess && (
+                <div className="mt-3 p-3 bg-green-50 text-green-700 rounded-lg">
+                  {pinSuccess}
+                </div>
+              )}
+            </div>
+
+            {/* Session Info */}
+            <div className="pt-6 border-t">
+              <h3 className="text-lg font-medium mb-2">Session</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                You are currently logged in. Use the logout button on the dashboard to end your session.
+              </p>
             </div>
           </div>
         )}

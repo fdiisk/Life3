@@ -2,6 +2,14 @@
 -- Run this in Supabase SQL Editor to create tables
 -- Safe to run multiple times (idempotent)
 
+-- Users table (for authentication)
+CREATE TABLE IF NOT EXISTS users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  username TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Goals table (created first due to foreign key references)
 CREATE TABLE IF NOT EXISTS goals (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -150,6 +158,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
   core_values TEXT[] DEFAULT ARRAY['Health', 'Family', 'Career', 'Growth', 'Joy'],
   target_weight_kg DECIMAL,
   macro_goals JSONB DEFAULT NULL,
+  journal_pin_hash TEXT DEFAULT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

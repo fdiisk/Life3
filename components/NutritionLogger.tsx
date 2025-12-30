@@ -389,9 +389,9 @@ export default function NutritionLogger({
                   <div key={i} className="flex items-center justify-between bg-white p-2 rounded">
                     <div>
                       <span className="font-medium">{item.food_name}</span>
-                      <span className="text-sm text-gray-500 ml-2">
-                        {item.macros?.calories || '?'} cal
-                      </span>
+                      <div className="text-xs text-gray-500">
+                        {item.macros?.calories ?? 0} cal • {item.macros?.protein ?? 0}g P • {item.macros?.carbs ?? 0}g C • {item.macros?.fat ?? 0}g F
+                      </div>
                     </div>
                     <div className="flex gap-1">
                       <button
@@ -457,10 +457,10 @@ export default function NutritionLogger({
                 <div>
                   <p className="font-medium">{entry.food_name}</p>
                   <div className="text-xs text-gray-500 flex gap-3">
-                    {entry.macros?.calories && <span>{entry.macros.calories} cal</span>}
-                    {entry.macros?.protein && <span>{entry.macros.protein}g protein</span>}
-                    {entry.macros?.carbs && <span>{entry.macros.carbs}g carbs</span>}
-                    {entry.macros?.fat && <span>{entry.macros.fat}g fat</span>}
+                    <span>{entry.macros?.calories ?? 0} cal</span>
+                    <span>{entry.macros?.protein ?? 0}g P</span>
+                    <span>{entry.macros?.carbs ?? 0}g C</span>
+                    <span>{entry.macros?.fat ?? 0}g F</span>
                   </div>
                 </div>
                 <button

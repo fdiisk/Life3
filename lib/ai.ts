@@ -205,12 +205,14 @@ export async function summarizeReflections(reflections: string[]): Promise<strin
 // Dedicated nutrition parsing with better macro estimates
 const NUTRITION_PARSE_PROMPT = `Parse food items into nutrition data with accurate macro estimates.
 You are a nutrition expert. For each food item:
-- Identify branded items (Laughing Cow, American cheese, etc.) and use known nutritional values
-- For raw/uncooked items (rice, pasta, meat), calculate macros for the COOKED version (weights given are pre-cooking)
+- Identify branded items and use known nutritional values
+- For raw/uncooked items (rice, pasta, meat), calculate macros for the COOKED version
 - Meat loses ~25% weight when cooked, grains absorb water and ~triple in weight
 - Estimate macros per typical serving/amount mentioned
+- ALL items must have calories, protein, carbs, fat values (use 0 when applicable)
 
-IMPORTANT macro reference per 100g cooked:
+IMPORTANT macro references:
+Food items per 100g cooked:
 - Beef mince 10% fat: 176 cal, 26g protein, 0g carbs, 8g fat
 - Cooked white rice: 130 cal, 2.7g protein, 28g carbs, 0.3g fat
 - Bell pepper: 31 cal, 1g protein, 6g carbs, 0.3g fat
@@ -219,6 +221,19 @@ IMPORTANT macro reference per 100g cooked:
 - American cheese slice (~20g): 70 cal, 4g protein, 1g carbs, 6g fat
 - Laughing Cow wedge (~21g): 35 cal, 2g protein, 1g carbs, 2.5g fat
 - Olive oil (1 tbsp ~14g): 120 cal, 0g protein, 0g carbs, 14g fat
+
+Alcoholic drinks:
+- Pure alcohol: 7 cal per gram (no protein/carbs/fat)
+- Whiskey/Bourbon (40% ABV, 30ml shot): 70 cal, 0g protein, 0g carbs, 0g fat
+- Vodka/Rum (40% ABV, 30ml shot): 65 cal, 0g protein, 0g carbs, 0g fat
+- Beer (330ml, 5%): 140 cal, 1g protein, 12g carbs, 0g fat
+- Wine red (150ml): 125 cal, 0g protein, 4g carbs, 0g fat
+- Premix RTD (e.g. Wild Turkey, Jack Daniels ~7% 375ml): ~250 cal, 0g protein, 20g carbs, 0g fat
+
+Soft drinks per 330ml can:
+- Pepsi Max/Coke Zero/Diet drinks: 0-4 cal, 0g protein, 0g carbs, 0g fat
+- Regular Coke/Pepsi: 140 cal, 0g protein, 39g carbs, 0g fat
+- Orange juice: 110 cal, 2g protein, 26g carbs, 0g fat
 
 Output ONLY valid JSON array:
 [{"food_name":"descriptive name","macros":{"calories":number,"protein":number,"carbs":number,"fat":number,"fiber":number}}]

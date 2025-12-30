@@ -30,9 +30,10 @@ interface DashboardMetrics {
 
 interface DashboardProps {
   userId: string
+  onLogout?: () => void
 }
 
-export default function Dashboard({ userId }: DashboardProps) {
+export default function Dashboard({ userId, onLogout }: DashboardProps) {
   const [loading, setLoading] = useState(true)
   const [dateLoading, setDateLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -252,6 +253,14 @@ export default function Dashboard({ userId }: DashboardProps) {
             >
               Analytics
             </a>
+            {onLogout && (
+              <button
+                onClick={onLogout}
+                className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition"
+              >
+                Logout
+              </button>
+            )}
           </div>
         </header>
 

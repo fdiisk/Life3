@@ -1,5 +1,12 @@
+'use client'
+
+import RequireAuth from '@/components/RequireAuth'
 import SettingsPage from '@/components/SettingsPage'
 
 export default function Settings() {
-  return <SettingsPage userId="user-123" />
+  return (
+    <RequireAuth>
+      {(userId) => <SettingsPage userId={userId} />}
+    </RequireAuth>
+  )
 }

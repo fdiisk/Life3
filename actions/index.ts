@@ -486,3 +486,89 @@ export async function upsertJournal(journal: Parameters<typeof db.upsertJournal>
 export async function deleteJournal(id: string) {
   return await db.deleteJournal(id)
 }
+
+// Authentication actions
+import { hashPassword, verifyPassword, hashPin, verifyPin } from '@/lib/auth'
+
+export async function login(username: string, password: string): Promise<{ success: boolean; userId?: string; error?: string }> {
+  try {
+    const user = await db.getUserByUsername(username)
+    if (!user) {
+      return { success: false, error: 'Invalid username or password' }
+    }
+
+    const valid = await verifyPassword(password, user.password_hash)
+    if (!valid) {
+      return { success: false, error: 'Invalid username or password' }
+    }
+
+    return { success: true, userId: user.id }
+  } catch (error) {
+    console.error('Login error:', error)
+    return { success: false, error: 'Login failed' }
+  }
+}
+
+export async function register(username: string, password: string): Promise<{ success: boolean; userId?: string; error?: string }> {
+  try {
+    // Check if user exists
+    const existing = await db.getUserByUsername(username)
+    if (existing) {
+      return { success: false, error: 'Username already exists' }
+    }
+
+    // Hash password and create user
+    const passwordHash = await hashPassword(password)
+    const user = await db.createUser(username, passwordHash)
+
+    return { success: true, userId: user.id }
+  } catch (error) {
+    console.error('Registration error:', error)
+    return { success: false, error: 'Registration failed' }
+  }
+}
+
+export async function setJournalPin(userId: string, pin: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!/^\d{6}$/.test(pin)) {
+      return { success: false, error: 'PIN must be 6 digits' }
+    }
+
+    const pinHash = await hashPin(pin)
+    await db.upsertUserSettings(userId, { journal_pin_hash: pinHash })
+
+    return { success: true }
+  } catch (error) {
+    console.error('Set PIN error:', error)
+    return { success: false, error: 'Failed to set PIN' }
+  }
+}
+
+export async function verifyJournalPin(userId: string, pin: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const settings = await db.getUserSettings(userId)
+    if (!settings?.journal_pin_hash) {
+      // No PIN set, allow access
+      return { success: true }
+    }
+
+    const valid = await verifyPin(pin, settings.journal_pin_hash)
+    if (!valid) {
+      return { success: false, error: 'Invalid PIN' }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('Verify PIN error:', error)
+    return { success: false, error: 'PIN verification failed' }
+  }
+}
+
+export async function hasJournalPin(userId: string): Promise<boolean> {
+  try {
+    const settings = await db.getUserSettings(userId)
+    return !!settings?.journal_pin_hash
+  } catch {
+    return false
+  }
+}

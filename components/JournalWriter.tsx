@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { Journal } from '@/lib/types'
+import * as actions from '@/actions'
 
 interface JournalWriterProps {
   journal: Journal | null
@@ -33,9 +34,49 @@ export default function JournalWriter({
   const [showHistory, setShowHistory] = useState(false)
   const [viewingEntry, setViewingEntry] = useState<Journal | null>(null)
 
+  // PIN protection state
+  const [hasPin, setHasPin] = useState<boolean | null>(null)
+  const [isUnlocked, setIsUnlocked] = useState(false)
+  const [pinInput, setPinInput] = useState('')
+  const [pinError, setPinError] = useState<string | null>(null)
+  const [checkingPin, setCheckingPin] = useState(true)
+
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const contentRef = useRef(content)
   contentRef.current = content
+  const pinInputRef = useRef<HTMLInputElement>(null)
+
+  // Check if PIN is set and if already unlocked
+  useEffect(() => {
+    const checkPinStatus = async () => {
+      try {
+        const pinSet = await actions.hasJournalPin(userId)
+        setHasPin(pinSet)
+
+        // Check if already unlocked this session
+        if (pinSet) {
+          const unlocked = sessionStorage.getItem(`life3_journal_unlocked_${userId}`)
+          setIsUnlocked(unlocked === 'true')
+        } else {
+          setIsUnlocked(true) // No PIN means always unlocked
+        }
+      } catch (error) {
+        console.error('Error checking PIN:', error)
+        setIsUnlocked(true) // Default to unlocked on error
+      } finally {
+        setCheckingPin(false)
+      }
+    }
+
+    checkPinStatus()
+  }, [userId])
+
+  // Focus PIN input when shown
+  useEffect(() => {
+    if (hasPin && !isUnlocked && pinInputRef.current) {
+      pinInputRef.current.focus()
+    }
+  }, [hasPin, isUnlocked])
 
   // Update content when journal or date changes
   useEffect(() => {
@@ -96,6 +137,21 @@ export default function JournalWriter({
     }
   }
 
+  const handlePinSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setPinError(null)
+
+    const result = await actions.verifyJournalPin(userId, pinInput)
+    if (result.success) {
+      sessionStorage.setItem(`life3_journal_unlocked_${userId}`, 'true')
+      setIsUnlocked(true)
+      setPinInput('')
+    } else {
+      setPinError(result.error || 'Invalid PIN')
+      setPinInput('')
+    }
+  }
+
   // Clean up timeout on unmount
   useEffect(() => {
     return () => {
@@ -108,11 +164,63 @@ export default function JournalWriter({
   const isToday = selectedDate === new Date().toISOString().split('T')[0]
   const wordCount = content.trim() ? content.trim().split(/\s+/).length : 0
 
+  // Show loading while checking PIN status
+  if (checkingPin) {
+    return (
+      <div className="bg-white rounded-lg shadow p-4">
+        <h2 className="text-lg font-semibold mb-4">Journal</h2>
+        <div className="text-center py-8 text-gray-400">Loading...</div>
+      </div>
+    )
+  }
+
+  // Show PIN entry if locked
+  if (hasPin && !isUnlocked) {
+    return (
+      <div className="bg-white rounded-lg shadow p-4">
+        <h2 className="text-lg font-semibold mb-4">Journal</h2>
+        <div className="flex flex-col items-center justify-center py-8">
+          <div className="text-4xl mb-4">🔒</div>
+          <p className="text-gray-600 mb-4">Enter your 6-digit PIN to access journal</p>
+          <form onSubmit={handlePinSubmit} className="flex flex-col items-center gap-3">
+            <input
+              ref={pinInputRef}
+              type="password"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              value={pinInput}
+              onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
+              placeholder="••••••"
+              className="w-40 text-center text-2xl tracking-widest border rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {pinError && (
+              <p className="text-red-500 text-sm">{pinError}</p>
+            )}
+            <button
+              type="submit"
+              disabled={pinInput.length !== 6}
+              className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+            >
+              Unlock
+            </button>
+          </form>
+          <p className="text-xs text-gray-400 mt-4">
+            Set or change PIN in Settings → Security
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="bg-white rounded-lg shadow p-4">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold">Journal</h2>
+          {hasPin && (
+            <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded">🔓 Unlocked</span>
+          )}
           {!isToday && (
             <span className="text-sm text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
               {new Date(selectedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}

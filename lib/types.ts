@@ -169,6 +169,7 @@ export interface UserSettings {
   core_values: string[]
   target_weight_kg: number | null
   macro_goals: MacroGoals | null
+  journal_pin_hash: string | null
   created_at?: string
   updated_at?: string
 }

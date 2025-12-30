@@ -1,300 +1,252 @@
 'use client'
 
 import { useState } from 'react'
-import type { TimeBlock, Task, Habit, LifeArea } from '@/lib/types'
+import type { TimeBlock, Task, LifeArea } from '@/lib/types'
 import { LIFE_AREA_COLORS } from '@/lib/types'
-import HorizontalTimeline from './HorizontalTimeline'
 
 interface DailyPlannerProps {
   timeBlocks: TimeBlock[]
   tasks: Task[]
-  habits: Habit[]
   onCreateBlock: (block: Omit<TimeBlock, 'id' | 'created_at'>) => Promise<void>
   onDeleteBlock: (id: string) => Promise<void>
   onCompleteTask: (id: string) => Promise<void>
-  onCompleteHabit: (id: string) => Promise<void>
   userId: string
+  selectedDate: string
 }
 
-const HOURS = Array.from({ length: 17 }, (_, i) => i + 6) // 6 AM to 10 PM
+const HOURS = Array.from({ length: 16 }, (_, i) => i + 6) // 6 AM to 9 PM
 
 export default function DailyPlanner({
   timeBlocks,
   tasks,
-  habits,
   onCreateBlock,
   onDeleteBlock,
   onCompleteTask,
-  onCompleteHabit,
   userId,
+  selectedDate,
 }: DailyPlannerProps) {
-  const [selectedDate] = useState(new Date().toISOString().split('T')[0])
-  const [showModal, setShowModal] = useState(false)
-  const [showFullscreen, setShowFullscreen] = useState(false)
   const [selectedHour, setSelectedHour] = useState<number | null>(null)
-  const [newBlock, setNewBlock] = useState<{
-    type: LifeArea
-    duration: number
-    linkedTaskId: string | null
-    linkedHabitId: string | null
-  }>({
-    type: 'work',
-    duration: 60,
-    linkedTaskId: null,
-    linkedHabitId: null,
-  })
+  const [selectedTask, setSelectedTask] = useState<string>('')
+  const [blockType, setBlockType] = useState<LifeArea>('work')
 
-  const getBlocksForHour = (hour: number) => {
-    return timeBlocks.filter((block) => {
+  const currentHour = new Date().getHours()
+  const isToday = selectedDate === new Date().toISOString().split('T')[0]
+
+  // Get block for a specific hour (only one per hour)
+  const getBlockForHour = (hour: number): TimeBlock | null => {
+    return timeBlocks.find((block) => {
       const blockHour = new Date(block.start_time).getHours()
       return blockHour === hour
-    })
+    }) || null
   }
 
-  const handleAddBlock = async () => {
+  // Get task name for a block
+  const getTaskName = (block: TimeBlock): string | null => {
+    if (block.linked_task_id) {
+      const task = tasks.find(t => t.id === block.linked_task_id)
+      return task?.title || null
+    }
+    return null
+  }
+
+  const handleAssign = async () => {
     if (selectedHour === null) return
 
     const startTime = new Date(selectedDate)
     startTime.setHours(selectedHour, 0, 0, 0)
 
     const endTime = new Date(startTime)
-    endTime.setMinutes(endTime.getMinutes() + newBlock.duration)
+    endTime.setHours(selectedHour + 1, 0, 0, 0)
 
     await onCreateBlock({
       user_id: userId,
       start_time: startTime.toISOString(),
       end_time: endTime.toISOString(),
-      type: newBlock.type,
-      linked_task_id: newBlock.linkedTaskId,
-      linked_habit_id: newBlock.linkedHabitId,
+      type: blockType,
+      linked_task_id: selectedTask || null,
+      linked_habit_id: null,
     })
 
-    setShowModal(false)
     setSelectedHour(null)
+    setSelectedTask('')
   }
 
   const uncompletedTasks = tasks.filter((t) => !t.completed)
-  const todayHabits = habits.filter((h) => {
-    const lastDone = h.last_done ? new Date(h.last_done).toISOString().split('T')[0] : null
-    return lastDone !== selectedDate
-  })
+
+  // Calculate stats
+  const blockedHours = timeBlocks.length
+  const workHours = timeBlocks.filter(b => b.type === 'work').length
 
   return (
-    <div className="bg-white rounded-lg shadow p-4">
+    <div className="bg-white rounded-lg shadow p-4 col-span-2">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">Daily Planner</h2>
-        <button
-          onClick={() => setShowFullscreen(true)}
-          className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-medium transition flex items-center gap-1"
-        >
-          <span>Fullscreen Timeline</span>
-          <span className="text-lg">&#x26F6;</span>
-        </button>
+        <div>
+          <h2 className="text-lg font-semibold">Timeline</h2>
+          <p className="text-xs text-gray-500">
+            {blockedHours} hours planned • {workHours} work
+          </p>
+        </div>
+        <div className="flex gap-1 text-xs">
+          {(['work', 'health', 'personal', 'learning'] as LifeArea[]).map((type) => (
+            <span
+              key={type}
+              className={`${LIFE_AREA_COLORS[type]} px-2 py-0.5 rounded text-white capitalize`}
+            >
+              {type[0].toUpperCase()}
+            </span>
+          ))}
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Time Grid */}
-        <div className="lg:col-span-2">
-          <div className="border rounded-lg overflow-hidden">
-            {HOURS.map((hour) => {
-              const blocks = getBlocksForHour(hour)
-              return (
-                <div
-                  key={hour}
-                  className="flex border-b last:border-b-0 min-h-[48px]"
-                >
-                  <div className="w-16 p-2 text-sm text-gray-500 bg-gray-50 flex-shrink-0">
-                    {hour % 12 || 12} {hour < 12 ? 'AM' : 'PM'}
-                  </div>
-                  <div
-                    className="flex-1 p-1 cursor-pointer hover:bg-gray-50 flex flex-wrap gap-1"
-                    onClick={() => {
+      {/* Candle Bar Timeline */}
+      <div className="relative">
+        {/* Hour Labels */}
+        <div className="flex border-b border-gray-200 mb-1">
+          {HOURS.map((hour) => (
+            <div
+              key={hour}
+              className="flex-1 text-center text-xs text-gray-400 pb-1"
+            >
+              {hour % 12 || 12}{hour < 12 ? 'a' : 'p'}
+            </div>
+          ))}
+        </div>
+
+        {/* Bars */}
+        <div className="flex gap-1 h-24 items-end">
+          {HOURS.map((hour) => {
+            const block = getBlockForHour(hour)
+            const isCurrentHour = isToday && hour === currentHour
+            const isPast = isToday && hour < currentHour
+            const taskName = block ? getTaskName(block) : null
+
+            return (
+              <div
+                key={hour}
+                className="flex-1 flex flex-col items-center relative group"
+              >
+                {/* Bar */}
+                <button
+                  onClick={() => {
+                    if (block) {
+                      onDeleteBlock(block.id)
+                    } else {
                       setSelectedHour(hour)
-                      setShowModal(true)
-                    }}
-                  >
-                    {blocks.map((block) => (
-                      <div
-                        key={block.id}
-                        className={`${LIFE_AREA_COLORS[block.type]} text-white px-2 py-1 rounded text-sm flex items-center gap-1`}
-                      >
-                        <span className="capitalize">{block.type}</span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            onDeleteBlock(block.id)
-                          }}
-                          className="ml-1 hover:opacity-70"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
+                    }
+                  }}
+                  className={`w-full rounded-t transition-all ${
+                    block
+                      ? `${LIFE_AREA_COLORS[block.type]} hover:opacity-80`
+                      : isPast
+                        ? 'bg-gray-100'
+                        : 'bg-gray-200 hover:bg-gray-300'
+                  } ${isCurrentHour ? 'ring-2 ring-red-400 ring-offset-1' : ''}`}
+                  style={{
+                    height: block ? '100%' : (isPast ? '20%' : '40%'),
+                    minHeight: '16px'
+                  }}
+                  title={block ? `${block.type}${taskName ? `: ${taskName}` : ''} - Click to remove` : 'Click to assign'}
+                />
+
+                {/* Current time indicator */}
+                {isCurrentHour && (
+                  <div className="absolute -top-1 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-red-500 rounded-full" />
+                )}
+
+                {/* Tooltip on hover */}
+                {block && (
+                  <div className="absolute bottom-full mb-2 left-1/2 transform -translate-x-1/2 hidden group-hover:block z-10">
+                    <div className="bg-gray-800 text-white text-xs rounded px-2 py-1 whitespace-nowrap">
+                      {block.type}{taskName ? `: ${taskName}` : ''}
+                    </div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )}
+              </div>
+            )
+          })}
         </div>
 
-        {/* Unscheduled Items */}
-        <div className="space-y-4">
-          <div>
-            <h3 className="font-medium mb-2">Uncompleted Tasks</h3>
-            <div className="space-y-1">
-              {uncompletedTasks.length === 0 && (
-                <p className="text-sm text-gray-400">No tasks</p>
-              )}
-              {uncompletedTasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-center gap-2 p-2 bg-gray-50 rounded"
-                >
-                  <input
-                    type="checkbox"
-                    onChange={() => onCompleteTask(task.id)}
-                    className="rounded"
-                  />
-                  <span className="text-sm">{task.title}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-medium mb-2">Today&apos;s Habits</h3>
-            <div className="space-y-1">
-              {todayHabits.length === 0 && (
-                <p className="text-sm text-gray-400">All done!</p>
-              )}
-              {todayHabits.map((habit) => (
-                <div
-                  key={habit.id}
-                  className="flex items-center gap-2 p-2 bg-gray-50 rounded"
-                >
-                  <input
-                    type="checkbox"
-                    onChange={() => onCompleteHabit(habit.id)}
-                    className="rounded"
-                  />
-                  <span className="text-sm">{habit.name}</span>
-                  <span className="text-xs text-orange-500 ml-auto">
-                    🔥 {habit.streak}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        {/* Current time line */}
+        {isToday && currentHour >= 6 && currentHour <= 21 && (
+          <div
+            className="absolute top-6 bottom-0 w-0.5 bg-red-500 pointer-events-none"
+            style={{
+              left: `${((currentHour - 6) / HOURS.length) * 100 + (100 / HOURS.length / 2)}%`
+            }}
+          />
+        )}
       </div>
 
-      {/* Add Block Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96">
-            <h3 className="text-lg font-semibold mb-4">
-              Add Block at {selectedHour! % 12 || 12} {selectedHour! < 12 ? 'AM' : 'PM'}
-            </h3>
+      {/* Assignment Modal */}
+      {selectedHour !== null && (
+        <div className="mt-4 p-3 bg-gray-50 rounded-lg border">
+          <div className="flex items-center justify-between mb-3">
+            <span className="font-medium text-sm">
+              Assign {selectedHour % 12 || 12}:00 {selectedHour < 12 ? 'AM' : 'PM'}
+            </span>
+            <button
+              onClick={() => setSelectedHour(null)}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              ×
+            </button>
+          </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Type</label>
-                <select
-                  value={newBlock.type}
-                  onChange={(e) => setNewBlock({ ...newBlock, type: e.target.value as LifeArea })}
-                  className="w-full border rounded p-2"
-                >
-                  <option value="work">Work</option>
-                  <option value="health">Health</option>
-                  <option value="personal">Personal</option>
-                  <option value="learning">Learning</option>
-                  <option value="social">Social</option>
-                  <option value="rest">Rest</option>
-                </select>
-              </div>
+          <div className="flex gap-2">
+            {/* Type selector */}
+            <select
+              value={blockType}
+              onChange={(e) => setBlockType(e.target.value as LifeArea)}
+              className="border rounded px-2 py-1.5 text-sm bg-white"
+            >
+              <option value="work">Work</option>
+              <option value="health">Health</option>
+              <option value="personal">Personal</option>
+              <option value="learning">Learning</option>
+              <option value="social">Social</option>
+              <option value="rest">Rest</option>
+            </select>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">Duration</label>
-                <select
-                  value={newBlock.duration}
-                  onChange={(e) => setNewBlock({ ...newBlock, duration: Number(e.target.value) })}
-                  className="w-full border rounded p-2"
-                >
-                  <option value={30}>30 minutes</option>
-                  <option value={60}>1 hour</option>
-                  <option value={90}>1.5 hours</option>
-                  <option value={120}>2 hours</option>
-                </select>
-              </div>
+            {/* Task selector */}
+            <select
+              value={selectedTask}
+              onChange={(e) => setSelectedTask(e.target.value)}
+              className="flex-1 border rounded px-2 py-1.5 text-sm bg-white"
+            >
+              <option value="">No task linked</option>
+              {uncompletedTasks.map((task) => (
+                <option key={task.id} value={task.id}>
+                  {task.title}
+                </option>
+              ))}
+            </select>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">Link to Task</label>
-                <select
-                  value={newBlock.linkedTaskId || ''}
-                  onChange={(e) => setNewBlock({
-                    ...newBlock,
-                    linkedTaskId: e.target.value || null,
-                    linkedHabitId: null,
-                  })}
-                  className="w-full border rounded p-2"
-                >
-                  <option value="">None</option>
-                  {uncompletedTasks.map((task) => (
-                    <option key={task.id} value={task.id}>{task.title}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Link to Habit</label>
-                <select
-                  value={newBlock.linkedHabitId || ''}
-                  onChange={(e) => setNewBlock({
-                    ...newBlock,
-                    linkedHabitId: e.target.value || null,
-                    linkedTaskId: null,
-                  })}
-                  className="w-full border rounded p-2"
-                >
-                  <option value="">None</option>
-                  {habits.map((habit) => (
-                    <option key={habit.id} value={habit.id}>{habit.name}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div className="flex gap-2 mt-6">
-              <button
-                onClick={() => setShowModal(false)}
-                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddBlock}
-                className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-              >
-                Add Block
-              </button>
-            </div>
+            <button
+              onClick={handleAssign}
+              className="px-4 py-1.5 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+            >
+              Assign
+            </button>
           </div>
         </div>
       )}
 
-      {/* Fullscreen Horizontal Timeline */}
-      {showFullscreen && (
-        <HorizontalTimeline
-          timeBlocks={timeBlocks}
-          tasks={tasks}
-          habits={habits}
-          onCreateBlock={onCreateBlock}
-          onDeleteBlock={onDeleteBlock}
-          onCompleteTask={onCompleteTask}
-          onCompleteHabit={onCompleteHabit}
-          userId={userId}
-          onClose={() => setShowFullscreen(false)}
-        />
+      {/* Quick Task List */}
+      {uncompletedTasks.length > 0 && (
+        <div className="mt-4 pt-3 border-t">
+          <p className="text-xs text-gray-500 mb-2">Quick complete:</p>
+          <div className="flex flex-wrap gap-1">
+            {uncompletedTasks.slice(0, 6).map((task) => (
+              <button
+                key={task.id}
+                onClick={() => onCompleteTask(task.id)}
+                className="px-2 py-1 bg-gray-100 hover:bg-green-100 rounded text-xs text-gray-600 hover:text-green-700 transition"
+              >
+                ✓ {task.title.length > 20 ? task.title.slice(0, 20) + '...' : task.title}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )

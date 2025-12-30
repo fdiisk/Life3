@@ -290,59 +290,48 @@ export default function Dashboard({ userId }: DashboardProps) {
 
         {/* Main Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Timeline - spans 2 columns */}
+          <DailyPlanner
+            timeBlocks={timeBlocks}
+            tasks={tasks}
+            userId={userId}
+            selectedDate={selectedDate}
+            onCreateBlock={async (block) => {
+              // Optimistic: add temp block immediately
+              const tempId = 'temp-' + Date.now()
+              const tempBlock = { ...block, id: tempId, created_at: new Date().toISOString() } as TimeBlock
+              setTimeBlocks(prev => [...prev, tempBlock])
+              try {
+                await actions.createTimeBlock(block)
+                // Refresh to get real ID
+                const blocks = await actions.getTimeBlocks(userId, selectedDate)
+                setTimeBlocks(blocks)
+              } catch {
+                setTimeBlocks(prev => prev.filter(b => b.id !== tempId))
+              }
+            }}
+            onDeleteBlock={async (id) => {
+              // Optimistic: remove immediately
+              setTimeBlocks(prev => prev.filter(b => b.id !== id))
+              try {
+                await actions.deleteTimeBlock(id)
+              } catch {
+                loadData() // Revert on error
+              }
+            }}
+            onCompleteTask={async (id) => {
+              // Optimistic: mark completed immediately
+              setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: true } : t))
+              try {
+                await actions.updateTask(id, { completed: true })
+              } catch {
+                setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: false } : t))
+              }
+            }}
+          />
+
           {/* Left Column */}
           <div className="space-y-6">
-            <DailyPlanner
-              timeBlocks={timeBlocks}
-              tasks={tasks}
-              habits={habits}
-              userId={userId}
-              onCreateBlock={async (block) => {
-                // Optimistic: add temp block immediately
-                const tempId = 'temp-' + Date.now()
-                const tempBlock = { ...block, id: tempId, created_at: new Date().toISOString() } as TimeBlock
-                setTimeBlocks(prev => [...prev, tempBlock])
-                try {
-                  await actions.createTimeBlock(block)
-                  // Refresh to get real ID
-                  const blocks = await actions.getTimeBlocks(userId, selectedDate)
-                  setTimeBlocks(blocks)
-                } catch {
-                  setTimeBlocks(prev => prev.filter(b => b.id !== tempId))
-                }
-              }}
-              onDeleteBlock={async (id) => {
-                // Optimistic: remove immediately
-                setTimeBlocks(prev => prev.filter(b => b.id !== id))
-                try {
-                  await actions.deleteTimeBlock(id)
-                } catch {
-                  loadData() // Revert on error
-                }
-              }}
-              onCompleteTask={async (id) => {
-                // Optimistic: mark completed immediately
-                setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: true } : t))
-                try {
-                  await actions.updateTask(id, { completed: true })
-                } catch {
-                  setTasks(prev => prev.map(t => t.id === id ? { ...t, completed: false } : t))
-                }
-              }}
-              onCompleteHabit={async (id) => {
-                // Optimistic: update last_done and increment streak
-                const today = new Date().toISOString().split('T')[0]
-                setHabits(prev => prev.map(h =>
-                  h.id === id ? { ...h, last_done: today, streak: h.streak + 1 } : h
-                ))
-                try {
-                  await actions.completeHabit(id)
-                } catch {
-                  loadData() // Revert on error
-                }
-              }}
-            />
-
             <HabitsTasks
               tasks={tasks}
               habits={habits}

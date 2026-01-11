@@ -58,7 +58,14 @@ export default function Dashboard({ userId, onLogout }: DashboardProps) {
   const [customValues, setCustomValues] = useState<string[]>([...CORE_VALUES])
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null)
 
-  const today = new Date().toISOString().split('T')[0]
+  // Use local date (not UTC) to avoid timezone issues
+  const getLocalDate = (date: Date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+  const today = getLocalDate(new Date())
   const [selectedDate, setSelectedDate] = useState(today)
 
   // Helper for async actions with error handling
@@ -197,7 +204,7 @@ export default function Dashboard({ userId, onLogout }: DashboardProps) {
                 onClick={() => {
                   const d = new Date(selectedDate)
                   d.setDate(d.getDate() - 1)
-                  setSelectedDate(d.toISOString().split('T')[0])
+                  setSelectedDate(getLocalDate(d))
                 }}
                 className="p-2 hover:bg-gray-200 rounded-lg transition"
                 title="Previous day"
@@ -215,7 +222,7 @@ export default function Dashboard({ userId, onLogout }: DashboardProps) {
                 onClick={() => {
                   const d = new Date(selectedDate)
                   d.setDate(d.getDate() + 1)
-                  const newDate = d.toISOString().split('T')[0]
+                  const newDate = getLocalDate(d)
                   if (newDate <= today) setSelectedDate(newDate)
                 }}
                 disabled={selectedDate >= today}

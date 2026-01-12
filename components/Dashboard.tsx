@@ -9,12 +9,11 @@ import FitnessLogger from './FitnessLogger'
 import ReflectionsNotes from './ReflectionsNotes'
 import GoalsManager from './GoalsManager'
 import DayFlowManager from './DayFlowManager'
-import QuickActions from './QuickActions'
 import SmartMetrics from './SmartMetrics'
 import SuggestionsPanel from './SuggestionsPanel'
 import JournalWriter from './JournalWriter'
 import * as actions from '@/actions'
-import type { Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note, Improvement, Meal, Journal, UserSettings } from '@/lib/types'
+import type { Task, Habit, Goal, TimeBlock, Nutrition, Fitness, Value, Reflection, Note, Improvement, Meal, Journal, UserSettings, SavedFood } from '@/lib/types'
 import type { AISuggestions } from '@/lib/ai-suggestions'
 import { CORE_VALUES } from '@/lib/constants'
 
@@ -44,6 +43,7 @@ export default function Dashboard({ userId, onLogout }: DashboardProps) {
   const [timeBlocks, setTimeBlocks] = useState<TimeBlock[]>([])
   const [nutrition, setNutrition] = useState<Nutrition[]>([])
   const [meals, setMeals] = useState<Meal[]>([])
+  const [savedFoods, setSavedFoods] = useState<SavedFood[]>([])
   const [fitness, setFitness] = useState<Fitness[]>([])
   const [values, setValues] = useState<Value[]>([])
   const [reflections, setReflections] = useState<Reflection[]>([])
@@ -92,6 +92,7 @@ export default function Dashboard({ userId, onLogout }: DashboardProps) {
         blocksData,
         nutritionData,
         mealsData,
+        savedFoodsData,
         fitnessData,
         valuesData,
         reflectionsData,
@@ -111,6 +112,7 @@ export default function Dashboard({ userId, onLogout }: DashboardProps) {
         actions.getTimeBlocks(userId, selectedDate).catch(() => []),
         actions.getNutrition(userId, selectedDate).catch(() => []),
         actions.getMeals(userId).catch(() => []),
+        actions.getSavedFoods(userId).catch(() => []),
         actions.getFitness(userId, selectedDate).catch(() => []),
         actions.getValues(userId, selectedDate).catch(() => []),
         actions.getReflections(userId).catch(() => []),
@@ -131,6 +133,7 @@ export default function Dashboard({ userId, onLogout }: DashboardProps) {
       setTimeBlocks(blocksData)
       setNutrition(nutritionData)
       setMeals(mealsData)
+      setSavedFoods(savedFoodsData)
       setFitness(fitnessData)
       setValues(valuesData)
       setReflections(reflectionsData)
@@ -428,6 +431,7 @@ export default function Dashboard({ userId, onLogout }: DashboardProps) {
             <NutritionLogger
               entries={nutrition}
               meals={meals}
+              savedFoods={savedFoods}
               macroGoals={userSettings?.macro_goals || null}
               selectedDate={selectedDate}
               userId={userId}
@@ -439,6 +443,10 @@ export default function Dashboard({ userId, onLogout }: DashboardProps) {
                 await actions.deleteNutrition(id)
                 loadData()
               }}
+              onUpdate={async (id, updates) => {
+                await actions.updateNutrition(id, updates)
+                loadData()
+              }}
               onParse={actions.parseNutritionAction}
               onCreateMeal={async (meal) => {
                 await actions.createMeal(meal)
@@ -446,6 +454,14 @@ export default function Dashboard({ userId, onLogout }: DashboardProps) {
               }}
               onDeleteMeal={async (id) => {
                 await actions.deleteMeal(id)
+                loadData()
+              }}
+              onSaveFood={async (food) => {
+                await actions.createSavedFood(food)
+                loadData()
+              }}
+              onDeleteSavedFood={async (id) => {
+                await actions.deleteSavedFood(id)
                 loadData()
               }}
             />
@@ -542,27 +558,6 @@ export default function Dashboard({ userId, onLogout }: DashboardProps) {
         }}
       />
 
-      {/* Quick Actions FAB */}
-      <QuickActions
-        habits={habits}
-        userId={userId}
-        onCompleteHabit={async (id) => {
-          await actions.completeHabit(id)
-          loadData()
-        }}
-        onQuickTask={async (task) => {
-          await actions.createTask(task)
-          loadData()
-        }}
-        onQuickNote={async (content) => {
-          await actions.createNote({
-            user_id: userId,
-            content,
-            timestamp: new Date().toISOString(),
-          })
-          loadData()
-        }}
-      />
     </main>
   )
 }

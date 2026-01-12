@@ -59,7 +59,23 @@ export interface Nutrition {
     fiber?: number
   }
   meal_id?: string  // If logged from a saved meal
+  saved_food_id?: string  // If logged from a saved food
+  source?: 'ai' | 'saved' | 'manual'  // How the data was obtained
   timestamp: string
+  created_at?: string
+}
+
+export interface SavedFood {
+  id: string
+  user_id: string
+  name: string
+  macros: {
+    calories: number
+    protein: number
+    carbs: number
+    fat: number
+    fiber: number
+  }
   created_at?: string
 }
 

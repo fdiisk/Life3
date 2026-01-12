@@ -1,37 +1,49 @@
 'use client'
 
 import { useState } from 'react'
-import type { Nutrition, Meal, MacroGoals } from '@/lib/types'
+import type { Nutrition, Meal, MacroGoals, SavedFood } from '@/lib/types'
 
 interface NutritionLoggerProps {
   entries: Nutrition[]
   meals: Meal[]
+  savedFoods: SavedFood[]
   macroGoals: MacroGoals | null
   selectedDate: string
   onAdd: (nutrition: Omit<Nutrition, 'id' | 'created_at'>) => Promise<void>
   onDelete: (id: string) => Promise<void>
+  onUpdate: (id: string, updates: Partial<Nutrition>) => Promise<void>
   onParse: (input: string) => Promise<Partial<Nutrition>[]>
   onCreateMeal: (meal: Omit<Meal, 'id' | 'created_at'>) => Promise<void>
   onDeleteMeal: (id: string) => Promise<void>
+  onSaveFood: (food: Omit<SavedFood, 'id' | 'created_at'>) => Promise<void>
+  onDeleteSavedFood: (id: string) => Promise<void>
   userId: string
 }
 
 export default function NutritionLogger({
   entries,
   meals,
+  savedFoods,
   macroGoals,
   selectedDate,
   onAdd,
   onDelete,
+  onUpdate,
   onParse,
   onCreateMeal,
   onDeleteMeal,
+  onSaveFood,
+  onDeleteSavedFood,
   userId,
 }: NutritionLoggerProps) {
-  const [activeTab, setActiveTab] = useState<'log' | 'meals'>('log')
+  const [activeTab, setActiveTab] = useState<'log' | 'meals' | 'saved'>('log')
   const [input, setInput] = useState('')
   const [parsing, setParsing] = useState(false)
   const [parsed, setParsed] = useState<Partial<Nutrition>[]>([])
+
+  // Expanded entry for viewing/editing
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [editingEntry, setEditingEntry] = useState<Nutrition | null>(null)
 
   // Meal creation state
   const [creatingMeal, setCreatingMeal] = useState(false)
@@ -45,6 +57,13 @@ export default function NutritionLogger({
   const [deletingMealId, setDeletingMealId] = useState<string | null>(null)
   const [loggingMealId, setLoggingMealId] = useState<string | null>(null)
   const [addingItem, setAddingItem] = useState(false)
+  const [savingFood, setSavingFood] = useState(false)
+
+  // Check if a food name matches any saved food
+  const findSavedFood = (name: string): SavedFood | undefined => {
+    const normalizedName = name.toLowerCase().trim()
+    return savedFoods.find(f => f.name.toLowerCase().trim() === normalizedName)
+  }
 
   const handleParse = async () => {
     if (!input.trim()) return
@@ -53,7 +72,20 @@ export default function NutritionLogger({
     try {
       const result = await onParse(input)
       if (result && result.length > 0) {
-        setParsed(result)
+        // Check each parsed item against saved foods for better accuracy
+        const enhancedResult = result.map(item => {
+          const saved = findSavedFood(item.food_name || '')
+          if (saved) {
+            return {
+              ...item,
+              macros: saved.macros,
+              saved_food_id: saved.id,
+              source: 'saved' as const,
+            }
+          }
+          return { ...item, source: 'ai' as const }
+        })
+        setParsed(enhancedResult)
       } else {
         setParseError('No items parsed. Try rephrasing or check your API key.')
       }
@@ -75,6 +107,8 @@ export default function NutritionLogger({
         user_id: userId,
         food_name: item.food_name,
         macros: item.macros || {},
+        saved_food_id: item.saved_food_id,
+        source: item.source || 'ai',
         timestamp,
       })
       setParsed(parsed.filter((p) => p !== item))
@@ -93,9 +127,75 @@ export default function NutritionLogger({
       user_id: userId,
       food_name: input,
       macros: {},
+      source: 'manual',
       timestamp,
     })
     setInput('')
+  }
+
+  // Save parsed item as a saved food for future use
+  const handleSaveAsFood = async (item: Partial<Nutrition>) => {
+    if (!item.food_name || savingFood) return
+    setSavingFood(true)
+    try {
+      await onSaveFood({
+        user_id: userId,
+        name: item.food_name,
+        macros: {
+          calories: item.macros?.calories || 0,
+          protein: item.macros?.protein || 0,
+          carbs: item.macros?.carbs || 0,
+          fat: item.macros?.fat || 0,
+          fiber: item.macros?.fiber || 0,
+        },
+      })
+    } finally {
+      setSavingFood(false)
+    }
+  }
+
+  // Log from saved food
+  const handleLogSavedFood = async (food: SavedFood) => {
+    const timestamp = new Date(selectedDate + 'T' + new Date().toTimeString().slice(0, 8)).toISOString()
+    await onAdd({
+      user_id: userId,
+      food_name: food.name,
+      macros: food.macros,
+      saved_food_id: food.id,
+      source: 'saved',
+      timestamp,
+    })
+  }
+
+  // Update entry
+  const handleUpdateEntry = async () => {
+    if (!editingEntry) return
+    await onUpdate(editingEntry.id, {
+      food_name: editingEntry.food_name,
+      macros: editingEntry.macros,
+    })
+    setEditingEntry(null)
+    setExpandedId(null)
+  }
+
+  // Save entry as a saved food
+  const handleSaveEntryAsFood = async (entry: Nutrition) => {
+    setSavingFood(true)
+    try {
+      await onSaveFood({
+        user_id: userId,
+        name: entry.food_name,
+        macros: {
+          calories: entry.macros?.calories || 0,
+          protein: entry.macros?.protein || 0,
+          carbs: entry.macros?.carbs || 0,
+          fat: entry.macros?.fat || 0,
+          fiber: entry.macros?.fiber || 0,
+        },
+      })
+    } finally {
+      setSavingFood(false)
+    }
   }
 
   // Add ingredient to meal being created
@@ -169,6 +269,7 @@ export default function NutritionLogger({
         food_name: `${meal.name} (1/${meal.portions} portion)`,
         macros: portionMacros,
         meal_id: meal.id,
+        source: 'saved',
         timestamp,
       })
     } finally {
@@ -211,6 +312,20 @@ export default function NutritionLogger({
   const getPercent = (current: number, goal: number) => Math.min(100, Math.round((current / goal) * 100))
   const isOverGoal = (current: number, goal: number) => current > goal
 
+  // Get source badge
+  const getSourceBadge = (source?: string) => {
+    switch (source) {
+      case 'ai':
+        return <span className="ml-2 px-1.5 py-0.5 text-xs bg-amber-100 text-amber-700 rounded" title="AI estimated - click to verify/edit">AI</span>
+      case 'saved':
+        return <span className="ml-2 px-1.5 py-0.5 text-xs bg-green-100 text-green-700 rounded" title="From saved foods">Saved</span>
+      case 'manual':
+        return <span className="ml-2 px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded" title="Manually entered">Manual</span>
+      default:
+        return <span className="ml-2 px-1.5 py-0.5 text-xs bg-amber-100 text-amber-700 rounded" title="AI estimated - click to verify/edit">AI</span>
+    }
+  }
+
   return (
     <div className="bg-white rounded-lg shadow p-4">
       <div className="flex items-center justify-between mb-3">
@@ -227,6 +342,12 @@ export default function NutritionLogger({
             className={`px-3 py-1 text-sm rounded ${activeTab === 'meals' ? 'bg-green-500 text-white' : 'bg-gray-100'}`}
           >
             Meals
+          </button>
+          <button
+            onClick={() => setActiveTab('saved')}
+            className={`px-3 py-1 text-sm rounded ${activeTab === 'saved' ? 'bg-green-500 text-white' : 'bg-gray-100'}`}
+          >
+            Saved ({savedFoods.length})
           </button>
         </div>
       </div>
@@ -387,32 +508,65 @@ export default function NutritionLogger({
               <div className="space-y-2">
                 {parsed.map((item, i) => (
                   <div key={i} className="flex items-center justify-between bg-white p-2 rounded">
-                    <div>
-                      <span className="font-medium">{item.food_name}</span>
+                    <div className="flex-1">
+                      <div className="flex items-center">
+                        <span className="font-medium">{item.food_name}</span>
+                        {getSourceBadge(item.source)}
+                      </div>
                       <div className="text-xs text-gray-500">
-                        {item.macros?.calories ?? 0} cal • {item.macros?.protein ?? 0}g P • {item.macros?.carbs ?? 0}g C • {item.macros?.fat ?? 0}g F
+                        {item.macros?.calories ?? 0} cal | {item.macros?.protein ?? 0}g P | {item.macros?.carbs ?? 0}g C | {item.macros?.fat ?? 0}g F
                       </div>
                     </div>
                     <div className="flex gap-1">
                       <button
                         onClick={() => handleAdd(item)}
-                        className="px-3 py-1 bg-green-500 text-white rounded text-sm"
+                        disabled={addingItem}
+                        className="px-3 py-1 bg-green-500 text-white rounded text-sm disabled:opacity-50"
                       >
                         Log
                       </button>
+                      {item.source === 'ai' && !findSavedFood(item.food_name || '') && (
+                        <button
+                          onClick={() => handleSaveAsFood(item)}
+                          disabled={savingFood}
+                          className="px-2 py-1 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200 disabled:opacity-50"
+                          title="Save for future use"
+                        >
+                          Save
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           setCreatingMeal(true)
                           setActiveTab('meals')
                           handleAddToMeal(item)
                         }}
-                        className="px-3 py-1 bg-blue-500 text-white rounded text-sm"
+                        className="px-2 py-1 bg-purple-100 text-purple-700 rounded text-sm hover:bg-purple-200"
                         title="Add to new meal"
                       >
-                        + Meal
+                        +Meal
                       </button>
                     </div>
                   </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Quick Log from Saved Foods */}
+          {savedFoods.length > 0 && (
+            <div className="mb-4">
+              <p className="text-sm font-medium mb-2">Quick Log from Saved:</p>
+              <div className="flex flex-wrap gap-2">
+                {savedFoods.slice(0, 6).map((food) => (
+                  <button
+                    key={food.id}
+                    onClick={() => handleLogSavedFood(food)}
+                    className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200 transition"
+                  >
+                    {food.name}
+                    <span className="text-xs ml-1 opacity-70">({food.macros.calories} cal)</span>
+                  </button>
                 ))}
               </div>
             </div>
@@ -444,31 +598,183 @@ export default function NutritionLogger({
             </div>
           )}
 
-          {/* Entries */}
+          {/* Entries - Now expandable */}
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {entries.length === 0 && (
               <p className="text-gray-400 text-center py-4">No entries today</p>
             )}
             {entries.map((entry) => (
-              <div
-                key={entry.id}
-                className="flex items-center justify-between p-2 border rounded"
-              >
-                <div>
-                  <p className="font-medium">{entry.food_name}</p>
-                  <div className="text-xs text-gray-500 flex gap-3">
-                    <span>{entry.macros?.calories ?? 0} cal</span>
-                    <span>{entry.macros?.protein ?? 0}g P</span>
-                    <span>{entry.macros?.carbs ?? 0}g C</span>
-                    <span>{entry.macros?.fat ?? 0}g F</span>
+              <div key={entry.id} className="border rounded overflow-hidden">
+                {/* Entry header - clickable */}
+                <div
+                  onClick={() => setExpandedId(expandedId === entry.id ? null : entry.id)}
+                  className="flex items-center justify-between p-2 cursor-pointer hover:bg-gray-50"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center">
+                      <p className="font-medium">{entry.food_name}</p>
+                      {getSourceBadge(entry.source)}
+                    </div>
+                    <div className="text-xs text-gray-500 flex gap-3">
+                      <span>{entry.macros?.calories ?? 0} cal</span>
+                      <span>{entry.macros?.protein ?? 0}g P</span>
+                      <span>{entry.macros?.carbs ?? 0}g C</span>
+                      <span>{entry.macros?.fat ?? 0}g F</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-400 text-sm">{expandedId === entry.id ? '▲' : '▼'}</span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onDelete(entry.id)
+                      }}
+                      className="text-gray-400 hover:text-red-500"
+                    >
+                      ×
+                    </button>
                   </div>
                 </div>
-                <button
-                  onClick={() => onDelete(entry.id)}
-                  className="text-gray-400 hover:text-red-500"
-                >
-                  ×
-                </button>
+
+                {/* Expanded content - edit form */}
+                {expandedId === entry.id && (
+                  <div className="p-3 bg-gray-50 border-t space-y-3">
+                    {editingEntry?.id === entry.id ? (
+                      <>
+                        <div>
+                          <label className="block text-xs text-gray-500 mb-1">Food Name</label>
+                          <input
+                            type="text"
+                            value={editingEntry.food_name}
+                            onChange={(e) => setEditingEntry({ ...editingEntry, food_name: e.target.value })}
+                            className="w-full border rounded p-2 text-sm"
+                          />
+                        </div>
+                        <div className="grid grid-cols-5 gap-2">
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Calories</label>
+                            <input
+                              type="number"
+                              value={editingEntry.macros?.calories ?? 0}
+                              onChange={(e) => setEditingEntry({
+                                ...editingEntry,
+                                macros: { ...editingEntry.macros, calories: parseInt(e.target.value) || 0 }
+                              })}
+                              className="w-full border rounded p-2 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Protein</label>
+                            <input
+                              type="number"
+                              value={editingEntry.macros?.protein ?? 0}
+                              onChange={(e) => setEditingEntry({
+                                ...editingEntry,
+                                macros: { ...editingEntry.macros, protein: parseInt(e.target.value) || 0 }
+                              })}
+                              className="w-full border rounded p-2 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Carbs</label>
+                            <input
+                              type="number"
+                              value={editingEntry.macros?.carbs ?? 0}
+                              onChange={(e) => setEditingEntry({
+                                ...editingEntry,
+                                macros: { ...editingEntry.macros, carbs: parseInt(e.target.value) || 0 }
+                              })}
+                              className="w-full border rounded p-2 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Fat</label>
+                            <input
+                              type="number"
+                              value={editingEntry.macros?.fat ?? 0}
+                              onChange={(e) => setEditingEntry({
+                                ...editingEntry,
+                                macros: { ...editingEntry.macros, fat: parseInt(e.target.value) || 0 }
+                              })}
+                              className="w-full border rounded p-2 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-gray-500 mb-1">Fiber</label>
+                            <input
+                              type="number"
+                              value={editingEntry.macros?.fiber ?? 0}
+                              onChange={(e) => setEditingEntry({
+                                ...editingEntry,
+                                macros: { ...editingEntry.macros, fiber: parseInt(e.target.value) || 0 }
+                              })}
+                              className="w-full border rounded p-2 text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setEditingEntry(null)}
+                            className="flex-1 px-3 py-1.5 border rounded text-sm hover:bg-gray-100"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleUpdateEntry}
+                            className="flex-1 px-3 py-1.5 bg-green-500 text-white rounded text-sm hover:bg-green-600"
+                          >
+                            Save Changes
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-5 gap-2 text-sm">
+                          <div className="text-center p-2 bg-white rounded">
+                            <div className="font-bold text-green-600">{entry.macros?.calories ?? 0}</div>
+                            <div className="text-xs text-gray-500">Calories</div>
+                          </div>
+                          <div className="text-center p-2 bg-white rounded">
+                            <div className="font-bold text-blue-600">{entry.macros?.protein ?? 0}g</div>
+                            <div className="text-xs text-gray-500">Protein</div>
+                          </div>
+                          <div className="text-center p-2 bg-white rounded">
+                            <div className="font-bold text-yellow-600">{entry.macros?.carbs ?? 0}g</div>
+                            <div className="text-xs text-gray-500">Carbs</div>
+                          </div>
+                          <div className="text-center p-2 bg-white rounded">
+                            <div className="font-bold text-orange-600">{entry.macros?.fat ?? 0}g</div>
+                            <div className="text-xs text-gray-500">Fat</div>
+                          </div>
+                          <div className="text-center p-2 bg-white rounded">
+                            <div className="font-bold text-emerald-600">{entry.macros?.fiber ?? 0}g</div>
+                            <div className="text-xs text-gray-500">Fiber</div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => setEditingEntry({ ...entry })}
+                            className="flex-1 px-3 py-1.5 bg-blue-100 text-blue-700 rounded text-sm hover:bg-blue-200"
+                          >
+                            Edit
+                          </button>
+                          {!findSavedFood(entry.food_name) && (
+                            <button
+                              onClick={() => handleSaveEntryAsFood(entry)}
+                              disabled={savingFood}
+                              className="flex-1 px-3 py-1.5 bg-green-100 text-green-700 rounded text-sm hover:bg-green-200 disabled:opacity-50"
+                            >
+                              {savingFood ? 'Saving...' : 'Save for Future'}
+                            </button>
+                          )}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          Logged at {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -624,16 +930,11 @@ export default function NutritionLogger({
                       <div className="flex-1">
                         <h4 className="font-medium">{meal.name}</h4>
                         <p className="text-sm text-gray-500">
-                          {meal.portions} portions • {Math.round(meal.total_macros.calories / meal.portions)} cal/portion
+                          {meal.portions} portions | {Math.round(meal.total_macros.calories / meal.portions)} cal/portion
                         </p>
                         <div className="text-xs text-gray-400 mt-1">
                           Total: {meal.total_macros.calories} cal, {meal.total_macros.protein}g protein
                         </div>
-                        {meal.created_at && (
-                          <div className="text-xs text-gray-400 mt-1">
-                            Created: {new Date(meal.created_at).toLocaleDateString()} {new Date(meal.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                          </div>
-                        )}
                       </div>
                       <div className="flex gap-2">
                         <button
@@ -669,6 +970,51 @@ export default function NutritionLogger({
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {activeTab === 'saved' && (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-500">
+            Saved foods have accurate macros for quick logging. Save foods after verifying their nutrition info.
+          </p>
+
+          {savedFoods.length === 0 ? (
+            <p className="text-gray-400 text-center py-8">
+              No saved foods yet. Parse and save foods from the Log tab to build your personal database.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {savedFoods.map((food) => (
+                <div key={food.id} className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex-1">
+                    <h4 className="font-medium">{food.name}</h4>
+                    <div className="text-xs text-gray-500 flex gap-3">
+                      <span>{food.macros.calories} cal</span>
+                      <span>{food.macros.protein}g P</span>
+                      <span>{food.macros.carbs}g C</span>
+                      <span>{food.macros.fat}g F</span>
+                      <span>{food.macros.fiber}g fiber</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleLogSavedFood(food)}
+                      className="px-3 py-1.5 bg-green-500 text-white rounded text-sm hover:bg-green-600"
+                    >
+                      Log
+                    </button>
+                    <button
+                      onClick={() => onDeleteSavedFood(food.id)}
+                      className="px-2 py-1.5 text-gray-400 hover:text-red-500"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

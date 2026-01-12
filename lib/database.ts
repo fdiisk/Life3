@@ -206,6 +206,45 @@ export async function deleteNutrition(id: string) {
   if (error) throw error
 }
 
+export async function updateNutrition(id: string, updates: Partial<Nutrition>) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase.from('nutrition').update(updates).eq('id', id).select().single()
+  if (error) throw error
+  return data as Nutrition
+}
+
+// Saved Foods (user's personal food database)
+export async function getSavedFoods(userId: string) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase
+    .from('saved_foods')
+    .select('*')
+    .eq('user_id', userId)
+    .order('name', { ascending: true })
+  if (error) throw error
+  return data as import('./types').SavedFood[]
+}
+
+export async function createSavedFood(food: Omit<import('./types').SavedFood, 'id' | 'created_at'>) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase.from('saved_foods').insert(food).select().single()
+  if (error) throw error
+  return data as import('./types').SavedFood
+}
+
+export async function updateSavedFood(id: string, updates: Partial<import('./types').SavedFood>) {
+  const supabase = createServerClient()
+  const { data, error } = await supabase.from('saved_foods').update(updates).eq('id', id).select().single()
+  if (error) throw error
+  return data as import('./types').SavedFood
+}
+
+export async function deleteSavedFood(id: string) {
+  const supabase = createServerClient()
+  const { error } = await supabase.from('saved_foods').delete().eq('id', id)
+  if (error) throw error
+}
+
 // Fitness
 export async function getFitness(userId: string, date: string) {
   const supabase = createServerClient()

@@ -87,6 +87,15 @@ CREATE TABLE meals (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Saved foods table (user's personal food database)
+CREATE TABLE saved_foods (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  macros JSONB NOT NULL DEFAULT '{"calories": 0, "protein": 0, "carbs": 0, "fat": 0, "fiber": 0}',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Nutrition table
 CREATE TABLE nutrition (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -94,6 +103,8 @@ CREATE TABLE nutrition (
   food_name TEXT NOT NULL,
   macros JSONB DEFAULT '{}',
   meal_id UUID REFERENCES meals(id) ON DELETE SET NULL,
+  saved_food_id UUID REFERENCES saved_foods(id) ON DELETE SET NULL,
+  source TEXT CHECK (source IN ('ai', 'saved', 'manual')) DEFAULT 'ai',
   timestamp TIMESTAMPTZ DEFAULT NOW(),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -195,8 +206,10 @@ CREATE INDEX idx_tasks_user_id ON tasks(user_id);
 CREATE INDEX idx_tasks_goal_id ON tasks(goal_id);
 CREATE INDEX idx_time_blocks_user_id ON time_blocks(user_id);
 CREATE INDEX idx_time_blocks_start ON time_blocks(start_time);
+CREATE INDEX idx_saved_foods_user_id ON saved_foods(user_id);
 CREATE INDEX idx_nutrition_user_id ON nutrition(user_id);
 CREATE INDEX idx_nutrition_meal_id ON nutrition(meal_id);
+CREATE INDEX idx_nutrition_saved_food_id ON nutrition(saved_food_id);
 CREATE INDEX idx_nutrition_timestamp ON nutrition(timestamp);
 CREATE INDEX idx_fitness_user_id ON fitness(user_id);
 CREATE INDEX idx_fitness_timestamp ON fitness(timestamp);
@@ -230,6 +243,7 @@ ALTER TABLE notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE journals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE improvements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE meals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE saved_foods ENABLE ROW LEVEL SECURITY;
 ALTER TABLE weight ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 
@@ -247,6 +261,7 @@ CREATE POLICY "Allow all on notes" ON notes FOR ALL USING (true) WITH CHECK (tru
 CREATE POLICY "Allow all on journals" ON journals FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on improvements" ON improvements FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on meals" ON meals FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Allow all on saved_foods" ON saved_foods FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on weight" ON weight FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Allow all on user_settings" ON user_settings FOR ALL USING (true) WITH CHECK (true);
 

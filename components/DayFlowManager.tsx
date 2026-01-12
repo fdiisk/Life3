@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import MorningRoutine from './MorningRoutine'
 import EveningCloseOut from './EveningCloseOut'
 import type { Task, Habit, Goal, TimeBlock, Value, Reflection } from '@/lib/types'
@@ -37,19 +37,7 @@ export default function DayFlowManager({
   const today = new Date().toISOString().split('T')[0]
   const storageKey = `life3_flow_${today}`
 
-  // Check if flows have been completed today
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem(storageKey)
-      if (!stored) {
-        // Show morning routine if it's before noon and not completed
-        const hour = new Date().getHours()
-        if (hour < 12) {
-          setFlowState('morning')
-        }
-      }
-    }
-  }, [storageKey])
+  // No auto-popup - only manual triggering via buttons
 
   const completeFlow = (flow: 'morning' | 'evening') => {
     if (typeof window !== 'undefined') {
@@ -58,13 +46,6 @@ export default function DayFlowManager({
       localStorage.setItem(storageKey, JSON.stringify(stored))
     }
     setFlowState('none')
-  }
-
-  const canShowEvening = () => {
-    if (typeof window === 'undefined') return false
-    const hour = new Date().getHours()
-    const stored = JSON.parse(localStorage.getItem(storageKey) || '{}')
-    return hour >= 18 && !stored.evening
   }
 
   if (flowState === 'morning') {
@@ -109,21 +90,12 @@ export default function DayFlowManager({
         <span>☀️</span>
         <span className="hidden sm:inline">Morning</span>
       </button>
-      {canShowEvening() && (
-        <button
-          onClick={() => setFlowState('evening')}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700 transition flex items-center gap-2"
-        >
-          <span>🌙</span>
-          <span className="hidden sm:inline">Evening</span>
-        </button>
-      )}
       <button
         onClick={() => setFlowState('evening')}
-        className="px-4 py-2 bg-indigo-600/80 text-white rounded-full shadow-lg hover:bg-indigo-700 transition flex items-center gap-2"
+        className="px-4 py-2 bg-indigo-600 text-white rounded-full shadow-lg hover:bg-indigo-700 transition flex items-center gap-2"
       >
         <span>🌙</span>
-        <span className="hidden sm:inline">Evening Review</span>
+        <span className="hidden sm:inline">Evening</span>
       </button>
     </div>
   )

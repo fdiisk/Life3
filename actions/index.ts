@@ -94,6 +94,27 @@ export async function deleteNutrition(id: string) {
   return await db.deleteNutrition(id)
 }
 
+export async function updateNutrition(id: string, updates: Parameters<typeof db.updateNutrition>[1]) {
+  return await db.updateNutrition(id, updates)
+}
+
+// Saved Foods actions (personal food database)
+export async function getSavedFoods(userId: string) {
+  return await db.getSavedFoods(userId)
+}
+
+export async function createSavedFood(food: Parameters<typeof db.createSavedFood>[0]) {
+  return await db.createSavedFood(food)
+}
+
+export async function updateSavedFood(id: string, updates: Parameters<typeof db.updateSavedFood>[1]) {
+  return await db.updateSavedFood(id, updates)
+}
+
+export async function deleteSavedFood(id: string) {
+  return await db.deleteSavedFood(id)
+}
+
 export async function getFitness(userId: string, date: string) {
   return await db.getFitness(userId, date)
 }
